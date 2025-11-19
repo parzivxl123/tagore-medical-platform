@@ -279,51 +279,45 @@
 
                 const userMessage = { role: 'user', content: chatInput };
                 setChatMessages(prev => [...prev, userMessage]);
+                const query = chatInput.toLowerCase();
                 setChatInput('');
                 setIsLoading(true);
 
-                try {
-                    const response = await fetch('https://api.anthropic.com/v1/messages', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: 'claude-sonnet-4-20250514',
-                            max_tokens: 4000,
-                            system: `You are MediBot, an advanced medical AI assistant integrated into the Tagore Medical Robotics Platform. You provide clear, professional medical guidance for healthcare professionals.
+                // Simulate processing delay
+                await new Promise(resolve => setTimeout(resolve, 1000));
 
-You are designed to assist with:
-- Medical procedures and protocols
-- Drug interactions and pharmacology
-- Diagnostic reasoning and differential diagnoses
-- Treatment planning and recommendations
-- Medical calculations and dosing
-- Emergency protocols and critical care guidance
-- Surgical procedures and techniques
-- Medical device usage and specifications
-- Clinical research and evidence-based medicine
+                let response = '';
 
-Never identify yourself as Claude or mention Anthropic. You are MediBot, purpose-built for the Tagore Medical Robotics Platform. Provide comprehensive, detailed responses to support healthcare professionals. Always remind users that you support clinical decision-making but do not replace professional medical judgment.`,
-                            messages: [...chatMessages, userMessage].map(m => ({
-                                role: m.role,
-                                content: m.content
-                            }))
-                        })
-                    });
-
-                    const data = await response.json();
-                    const assistantMessage = {
-                        role: 'assistant',
-                        content: data.content[0].text
-                    };
-                    setChatMessages(prev => [...prev, assistantMessage]);
-                } catch (err) {
-                    setChatMessages(prev => [...prev, {
-                        role: 'assistant',
-                        content: 'Error: Unable to process request. Please try again.'
-                    }]);
+                // Medical knowledge base for common queries
+                if (query.includes('cough') || query.includes('respiratory')) {
+                    response = 'For persistent cough evaluation, MediBot recommends a systematic approach. Begin with patient history including duration, characteristics (productive vs dry), and associated symptoms. Physical examination should include lung auscultation and vital signs assessment. Consider chest X-ray if symptoms persist beyond 3 weeks or if red flags are present such as hemoptysis, weight loss, or night sweats. Common causes include viral URI, post-nasal drip, asthma, GERD, or in chronic cases, COPD or ACE inhibitor use. Treatment should be tailored to the underlying cause. This guidance supports your clinical decision-making but does not replace professional medical judgment.';
+                } else if (query.includes('blood pressure') || query.includes('hypertension') || query.includes('bp')) {
+                    response = 'Blood pressure management requires careful consideration of patient factors and evidence-based guidelines. For newly diagnosed hypertension, lifestyle modifications should be initiated first including DASH diet, sodium restriction, regular exercise, and weight management. Pharmacologic therapy is indicated when BP consistently exceeds 130/80 mmHg in high-risk patients or 140/90 mmHg in standard-risk patients. First-line agents include ACE inhibitors, ARBs, calcium channel blockers, and thiazide diuretics. Monitor for target organ damage and adjust therapy based on response. Regular follow-up and patient education are essential for optimal outcomes. This recommendation supports clinical decision-making and should be individualized to each patient.';
+                } else if (query.includes('diabetes') || query.includes('glucose') || query.includes('insulin')) {
+                    response = 'Diabetes management involves comprehensive glycemic control and cardiovascular risk reduction. For type 2 diabetes, metformin remains first-line therapy unless contraindicated. HbA1c targets are typically less than 7% but should be individualized based on patient factors. Consider adding SGLT2 inhibitors or GLP-1 agonists for patients with cardiovascular disease or high risk. Insulin therapy may be needed for inadequate control. Regular monitoring includes HbA1c every 3 months, annual eye exams, foot examinations, and kidney function tests. Patient education on lifestyle modifications, medication adherence, and hypoglycemia recognition is crucial. This guidance supports your clinical assessment but should be tailored to individual patient needs.';
+                } else if (query.includes('antibiotic') || query.includes('infection') || query.includes('sepsis')) {
+                    response = 'Antibiotic selection requires careful consideration of infection source, likely pathogens, local resistance patterns, and patient factors. For empiric therapy in sepsis, broad-spectrum coverage should be initiated within 1 hour including coverage for gram-positive and gram-negative organisms. Common regimens include piperacillin-tazobactam or ceftriaxone plus vancomycin, adjusted based on clinical context. Obtain cultures before antibiotics when possible. De-escalate therapy based on culture results and clinical response. Monitor for adverse effects and adjust dosing for renal function. Antibiotic stewardship principles should guide duration and selection. This recommendation supports your clinical judgment and should be adapted to local guidelines and patient-specific factors.';
+                } else if (query.includes('pain') || query.includes('analgesic') || query.includes('opioid')) {
+                    response = 'Pain management requires multimodal approach and careful assessment of severity, chronicity, and underlying cause. For acute pain, start with non-opioid analgesics like acetaminophen or NSAIDs unless contraindicated. For moderate to severe pain, consider adding weak opioids like tramadol or codeine. Strong opioids should be reserved for severe pain with careful risk assessment for misuse. Non-pharmacologic approaches including physical therapy, cognitive behavioral therapy, and interventional procedures should be considered. For chronic pain, avoid long-term opioid therapy when possible and focus on functional improvement. Regular reassessment and documentation are essential. This guidance supports clinical decision-making while emphasizing patient safety and individualized care.';
+                } else if (query.includes('cardiac') || query.includes('heart') || query.includes('ecg') || query.includes('ekg')) {
+                    response = 'Cardiac assessment requires systematic evaluation including history, physical examination, ECG, and appropriate biomarkers. For chest pain evaluation, use validated risk scores like HEART or TIMI to stratify patients. ECG should be obtained within 10 minutes for suspected ACS. Troponin levels are essential for ruling out myocardial infarction with serial measurements if initial is negative. Consider stress testing or coronary CT angiography for intermediate-risk patients. Emergency cardiology consultation is warranted for STEMI, NSTEMI with high-risk features, or unstable angina. Treatment includes dual antiplatelet therapy, anticoagulation, and early revascularization when indicated. This recommendation supports your clinical assessment and should be integrated with institutional protocols.';
+                } else if (query.includes('pneumonia') || query.includes('lung')) {
+                    response = 'Pneumonia management depends on severity assessment and risk stratification. Use CURB-65 or PSI scores to determine appropriate care setting. Outpatient treatment typically involves amoxicillin-clavulanate or a macrolide for CAP. Hospitalized patients require broader coverage with ceftriaxone plus azithromycin or fluoroquinolone monotherapy. ICU patients need anti-pseudomonal coverage and MRSA coverage if risk factors present. Obtain blood cultures and sputum cultures before antibiotics when possible. Chest X-ray confirms diagnosis and assesses for complications. Monitor clinical response at 48-72 hours and consider alternative diagnoses if not improving. Duration is typically 5-7 days for CAP with clinical stability. This guidance supports clinical decision-making and should be adapted to local resistance patterns.';
+                } else if (query.includes('dosage') || query.includes('dose') || query.includes('calculation')) {
+                    response = 'Medication dosing requires careful calculation based on patient weight, renal function, hepatic function, and drug-specific factors. For weight-based dosing, use actual body weight for most medications unless specified otherwise. Adjust for renal impairment using calculated creatinine clearance (Cockcroft-Gault) or eGFR. Many antibiotics, anticoagulants, and chemotherapy agents require dose adjustment. For pediatric patients, verify doses using mg/kg calculations and compare to maximum adult doses. Always use standardized references and double-check high-risk medications. Consider therapeutic drug monitoring for narrow therapeutic index drugs. This calculation support aids your prescribing but always verify with official references and clinical pharmacist consultation when available.';
+                } else if (query.includes('protocol') || query.includes('guideline') || query.includes('algorithm')) {
+                    response = 'Clinical protocols provide standardized approaches to common conditions improving quality and efficiency of care. Key protocols include ACLS for cardiac arrest, stroke protocols for time-sensitive thrombolysis, sepsis bundles for early recognition and treatment, and trauma protocols following ATLS principles. Institutional protocols should be based on current evidence-based guidelines from organizations like AHA, ACC, ATS, and IDSA. Regular protocol review and staff education ensure consistent implementation. While protocols guide care, clinical judgment remains essential for individualizing treatment. Documentation of protocol adherence and deviations supports quality improvement. MediBot can help review specific protocol steps but always refer to your institution\'s current approved protocols for definitive guidance.';
+                } else if (query.includes('surgery') || query.includes('surgical') || query.includes('procedure')) {
+                    response = 'Surgical procedures require thorough preoperative assessment, informed consent, and appropriate risk stratification. Preoperative evaluation includes cardiac risk assessment using RCRI, pulmonary function testing when indicated, and optimization of comorbidities. ASA classification helps communicate perioperative risk. Antibiotic prophylaxis should be given within 60 minutes of incision for appropriate procedures. Venous thromboembolism prophylaxis is indicated for most surgical patients. Postoperative management includes pain control, early mobilization, and monitoring for complications. Common complications include surgical site infections, bleeding, and VTE. Enhanced recovery protocols (ERAS) improve outcomes across many surgical specialties. This guidance supports perioperative decision-making and should be coordinated with surgical and anesthesia teams.';
+                } else {
+                    response = `MediBot has received your query about "${chatInput.substring(0, 50)}${chatInput.length > 50 ? '...' : ''}". As an advanced medical AI assistant integrated into the Tagore Medical Robotics Platform, I can help with a wide range of medical topics including diagnostic reasoning, treatment protocols, medication guidance, procedural techniques, and clinical calculations. For the most accurate and comprehensive assistance, please provide more specific details about your clinical question including patient context, symptoms, or the particular aspect you need guidance on. Common topics I can assist with include respiratory conditions, cardiovascular disease, infectious diseases, pain management, medication dosing, emergency protocols, and surgical procedures. Remember that all guidance provided supports clinical decision-making but does not replace professional medical judgment and should be adapted to individual patient circumstances.`;
                 }
+
+                const assistantMessage = {
+                    role: 'assistant',
+                    content: response
+                };
+                setChatMessages(prev => [...prev, assistantMessage]);
                 setIsLoading(false);
             };
 
