@@ -8,35 +8,105 @@
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideInLeft {
+            from { opacity: 0; transform: translateX(-100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(16, 185, 129, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.8); }
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -1000px 0; }
+            100% { background-position: 1000px 0; }
+        }
+        
+        .animate-fade-in { animation: fadeIn 0.8s ease-out; }
+        .animate-slide-in-left { animation: slideInLeft 0.6s ease-out; }
+        .animate-slide-in-right { animation: slideInRight 0.6s ease-out; }
+        .animate-float { animation: float 3s ease-in-out infinite; }
+        .animate-glow { animation: glow 2s ease-in-out infinite; }
+        
+        .glass-morphism {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .gradient-green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%);
+        }
+        
+        .hover-lift {
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .hover-lift:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 25px 50px rgba(16, 185, 129, 0.4);
+        }
+        
+        .medical-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+            border-left: 5px solid #10b981;
+        }
+        
+        .chat-user {
+            animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        .chat-ai {
+            animation: slideInLeft 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        
+        #three-container {
+            width: 100%;
+            height: 500px;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+    </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 min-h-screen">
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState } = React;
+        const { useState, useEffect, useRef } = React;
 
-        // Lucide icons as inline SVGs
-        const Brain = ({ className, size = 24 }) => (
+        // Icons
+        const Brain = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/>
                 <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/>
-                <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/>
-                <path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/>
-                <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/>
-                <path d="M3.477 10.896a4 4 0 0 1 .585-.396"/>
-                <path d="M19.938 10.5a4 4 0 0 1 .585.396"/>
-                <path d="M6 18a4 4 0 0 1-1.967-.516"/>
-                <path d="M19.967 17.484A4 4 0 0 1 18 18"/>
             </svg>
         );
 
-        const MessageSquare = ({ className, size = 24 }) => (
+        const MessageSquare = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
             </svg>
         );
 
-        const Printer = ({ className, size = 24 }) => (
+        const Printer = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <polyline points="6 9 6 2 18 2 18 9"/>
                 <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
@@ -44,22 +114,21 @@
             </svg>
         );
 
-        const TestTube = ({ className, size = 24 }) => (
+        const TestTube = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5s-2.5-1.1-2.5-2.5V2"/>
                 <path d="M8.5 2h7"/>
-                <path d="M14.5 16h-5"/>
             </svg>
         );
 
-        const CheckCircle = ({ className, size = 24 }) => (
+        const CheckCircle = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
                 <polyline points="22 4 12 14.01 9 11.01"/>
             </svg>
         );
 
-        const XCircle = ({ className, size = 24 }) => (
+        const XCircle = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="15" y1="9" x2="9" y2="15"/>
@@ -67,7 +136,7 @@
             </svg>
         );
 
-        const AlertCircle = ({ className, size = 24 }) => (
+        const AlertCircle = ({ size = 24, className = "" }) => (
             <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="10"/>
                 <line x1="12" y1="8" x2="12" y2="12"/>
@@ -75,35 +144,221 @@
             </svg>
         );
 
+        // Three.js 3D Model Component with LARGER scale
+        const ThreeModel = ({ specs }) => {
+            const containerRef = useRef(null);
+            const sceneRef = useRef(null);
+            const rendererRef = useRef(null);
+            const meshRef = useRef(null);
+
+            useEffect(() => {
+                if (!containerRef.current) return;
+
+                const scene = new THREE.Scene();
+                scene.background = new THREE.Color(0xf0fdf4);
+                sceneRef.current = scene;
+
+                const camera = new THREE.PerspectiveCamera(
+                    45,
+                    containerRef.current.clientWidth / containerRef.current.clientHeight,
+                    0.1,
+                    1000
+                );
+                camera.position.set(0, 0, 180); // Moved camera closer for bigger view
+
+                const renderer = new THREE.WebGLRenderer({ antialias: true });
+                renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+                containerRef.current.appendChild(renderer.domElement);
+                rendererRef.current = renderer;
+
+                const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+                scene.add(ambientLight);
+
+                const directionalLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight1.position.set(10, 10, 10);
+                scene.add(directionalLight1);
+
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+                directionalLight2.position.set(-10, -10, -10);
+                scene.add(directionalLight2);
+
+                const pointLight = new THREE.PointLight(0x10b981, 0.6);
+                pointLight.position.set(0, 20, 20);
+                scene.add(pointLight);
+
+                createMesh(specs);
+
+                const animate = () => {
+                    requestAnimationFrame(animate);
+                    if (meshRef.current) {
+                        meshRef.current.rotation.x += 0.005;
+                        meshRef.current.rotation.y += 0.01;
+                    }
+                    renderer.render(scene, camera);
+                };
+                animate();
+
+                const handleResize = () => {
+                    if (!containerRef.current) return;
+                    camera.aspect = containerRef.current.clientWidth / containerRef.current.clientHeight;
+                    camera.updateProjectionMatrix();
+                    renderer.setSize(containerRef.current.clientWidth, containerRef.current.clientHeight);
+                };
+                window.addEventListener('resize', handleResize);
+
+                return () => {
+                    window.removeEventListener('resize', handleResize);
+                    if (containerRef.current && renderer.domElement) {
+                        containerRef.current.removeChild(renderer.domElement);
+                    }
+                    renderer.dispose();
+                };
+            }, []);
+
+            useEffect(() => {
+                createMesh(specs);
+            }, [specs]);
+
+            const createMesh = (specs) => {
+                if (!sceneRef.current) return;
+
+                if (meshRef.current) {
+                    sceneRef.current.remove(meshRef.current);
+                }
+
+                const materialConfig = {
+                    titanium: { color: 0xa8a8a8, metalness: 0.9, roughness: 0.2 },
+                    ceramic: { color: 0xf5f5f5, metalness: 0.3, roughness: 0.1 },
+                    polymer: { color: 0x8b9cff, metalness: 0.5, roughness: 0.4 }
+                };
+
+                const matConfig = materialConfig[specs.material] || materialConfig.titanium;
+                const material = new THREE.MeshStandardMaterial(matConfig);
+
+                // BIGGER SCALE - multiplied by 1.5 for better visibility
+                const length = (specs.length / 10) * 1.5;
+                const width = (specs.width / 10) * 1.5;
+
+                if (specs.type === 'knee') {
+                    const group = new THREE.Group();
+
+                    // Upper femoral component
+                    const upperGeom = new THREE.CylinderGeometry(width * 0.6, width * 0.7, length * 0.4, 32);
+                    const upperMesh = new THREE.Mesh(upperGeom, material);
+                    upperMesh.position.y = length * 0.3;
+                    group.add(upperMesh);
+
+                    // Middle joint sphere
+                    const middleGeom = new THREE.SphereGeometry(width * 0.5, 32, 32);
+                    const middleMesh = new THREE.Mesh(middleGeom, material);
+                    group.add(middleMesh);
+
+                    // Lower tibial component
+                    const lowerGeom = new THREE.CylinderGeometry(width * 0.7, width * 0.6, length * 0.4, 32);
+                    const lowerMesh = new THREE.Mesh(lowerGeom, material);
+                    lowerMesh.position.y = -length * 0.3;
+                    group.add(lowerMesh);
+
+                    meshRef.current = group;
+                } else if (specs.type === 'hip') {
+                    const group = new THREE.Group();
+
+                    // Socket
+                    const socketGeom = new THREE.SphereGeometry(width * 0.6, 32, 32, 0, Math.PI * 2, 0, Math.PI / 2);
+                    const socketMesh = new THREE.Mesh(socketGeom, material);
+                    socketMesh.position.y = length * 0.3;
+                    group.add(socketMesh);
+
+                    // Ball
+                    const ballGeom = new THREE.SphereGeometry(width * 0.4, 32, 32);
+                    const ballMesh = new THREE.Mesh(ballGeom, material);
+                    ballMesh.position.y = length * 0.2;
+                    group.add(ballMesh);
+
+                    // Stem
+                    const stemGeom = new THREE.CylinderGeometry(width * 0.2, width * 0.3, length * 0.9, 16);
+                    const stemMesh = new THREE.Mesh(stemGeom, material);
+                    stemMesh.position.y = -length * 0.25;
+                    stemMesh.rotation.z = 0.2;
+                    group.add(stemMesh);
+
+                    meshRef.current = group;
+                } else if (specs.type === 'shoulder') {
+                    const group = new THREE.Group();
+
+                    // Humeral head
+                    const headGeom = new THREE.SphereGeometry(width * 0.6, 32, 32, 0, Math.PI * 2, 0, Math.PI * 0.6);
+                    const headMesh = new THREE.Mesh(headGeom, material);
+                    headMesh.position.y = length * 0.3;
+                    group.add(headMesh);
+
+                    // Neck
+                    const neckGeom = new THREE.CylinderGeometry(width * 0.3, width * 0.35, length * 0.2, 16);
+                    const neckMesh = new THREE.Mesh(neckGeom, material);
+                    neckMesh.position.y = length * 0.1;
+                    group.add(neckMesh);
+
+                    // Stem
+                    const stemGeom = new THREE.CylinderGeometry(width * 0.25, width * 0.35, length * 0.8, 16);
+                    const stemMesh = new THREE.Mesh(stemGeom, material);
+                    stemMesh.position.y = -length * 0.3;
+                    group.add(stemMesh);
+
+                    meshRef.current = group;
+                } else if (specs.type === 'spinal') {
+                    const group = new THREE.Group();
+
+                    // Main vertebral body
+                    const bodyGeom = new THREE.BoxGeometry(width * 0.9, length * 0.7, width * 0.9);
+                    const bodyMesh = new THREE.Mesh(bodyGeom, material);
+                    group.add(bodyMesh);
+
+                    // Pedicle screws (4 corners)
+                    for (let i = 0; i < 4; i++) {
+                        const screwGeom = new THREE.CylinderGeometry(width * 0.12, width * 0.12, length * 0.5, 8);
+                        const screwMesh = new THREE.Mesh(screwGeom, material);
+                        const angle = (Math.PI / 2) * i;
+                        screwMesh.position.x = Math.cos(angle) * width * 0.6;
+                        screwMesh.position.z = Math.sin(angle) * width * 0.6;
+                        screwMesh.rotation.z = Math.PI / 2;
+                        group.add(screwMesh);
+                    }
+
+                    meshRef.current = group;
+                }
+
+                sceneRef.current.add(meshRef.current);
+            };
+
+            return <div ref={containerRef} id="three-container" className="rounded-2xl shadow-2xl" />;
+        };
+
         const TagoreMedicalPlatform = () => {
-            const [activeTab, setActiveTab] = useState('diagnostic');
+            const [currentPage, setCurrentPage] = useState('home');
             const [symptoms, setSymptoms] = useState({
-                fever: false,
-                cough: false,
-                chestPain: false,
-                shortnessOfBreath: false,
-                fatigue: false,
-                headache: false,
-                nausea: false,
-                abdominalPain: false,
-                jointPain: false,
-                rashSkin: false,
-                dizziness: false,
-                soreThroat: false
+                fever: false, cough: false, chestPain: false, shortnessOfBreath: false,
+                fatigue: false, headache: false, nausea: false, abdominalPain: false,
+                jointPain: false, rashSkin: false, dizziness: false, soreThroat: false,
+                vomiting: false, diarrhea: false, muscleAches: false, chills: false,
+                sweating: false, lossOfAppetite: false, weightLoss: false, confusion: false,
+                blurredVision: false, backPain: false
+            });
+
+            const [patientInfo, setPatientInfo] = useState({
+                age: 30, height: 170, weight: 70, comments: ''
             });
 
             const [vitals, setVitals] = useState({
-                temperature: 98.6,
-                heartRate: 72,
-                bloodPressure: '120/80',
-                oxygenSaturation: 98
+                temperature: 98.6, heartRate: 72, bloodPressure: '120/80', oxygenSaturation: 98
             });
 
+            // REDUCED LAB TESTS - Only 5 most important ones
             const [labResults, setLabResults] = useState({
                 wbcCount: 7000,
-                rbcCount: 5.0,
-                plateletCount: 250000,
-                crpLevel: 5
+                glucose: 90,
+                crpLevel: 5,
+                hemoglobin: 14.0,
+                creatinine: 1.0
             });
 
             const [diagnosis, setDiagnosis] = useState(null);
@@ -111,10 +366,7 @@
             const [chatInput, setChatInput] = useState('');
             const [isLoading, setIsLoading] = useState(false);
             const [prostheticSpecs, setProstheticSpecs] = useState({
-                type: 'knee',
-                length: 150,
-                width: 80,
-                material: 'titanium'
+                type: 'knee', length: 150, width: 80, material: 'titanium'
             });
             const [qaResults, setQaResults] = useState(null);
 
@@ -123,234 +375,222 @@
                 let urgency = 'LOW';
                 let recommendations = [];
 
+                const bmi = (patientInfo.weight / ((patientInfo.height / 100) ** 2)).toFixed(1);
+                const symptomCount = Object.values(symptoms).filter(Boolean).length;
+
+                // Urgency based on symptom count
+                if (symptomCount > 10) urgency = 'HIGH';
+                else if (symptomCount > 5) urgency = 'MEDIUM';
+
+                // CRITICAL - Chest Pain
+                if (symptoms.chestPain) {
+                    if (symptoms.shortnessOfBreath && vitals.heartRate > 100) {
+                        conditions.push({
+                            name: 'Acute Coronary Syndrome',
+                            probability: 88,
+                            reasoning: 'Chest pain with dyspnea and elevated heart rate suggests cardiac ischemia',
+                            wiki: 'https://en.wikipedia.org/wiki/Acute_coronary_syndrome'
+                        });
+                        urgency = 'CRITICAL';
+                        recommendations.push('IMMEDIATE: Call 911');
+                        recommendations.push('Give aspirin 325mg if available');
+                        recommendations.push('STAT ECG and cardiac troponins');
+                    } else {
+                        conditions.push({
+                            name: 'Cardiac Risk Assessment Required',
+                            probability: 72,
+                            reasoning: 'Chest pain requires cardiac evaluation',
+                            wiki: 'https://en.wikipedia.org/wiki/Chest_pain'
+                        });
+                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+                        recommendations.push('URGENT: Emergency department evaluation');
+                        recommendations.push('12-lead ECG immediately');
+                        recommendations.push('Serial cardiac enzyme measurements');
+                    }
+                }
+
+                // RESPIRATORY
                 if (symptoms.fever && symptoms.cough && symptoms.shortnessOfBreath) {
                     if (vitals.temperature > 100.4 && vitals.oxygenSaturation < 95) {
                         conditions.push({
-                            name: 'Severe Pneumonia',
-                            probability: 85,
-                            reasoning: 'High fever + productive cough + low O2 saturation indicates severe respiratory infection'
+                            name: 'Severe Community-Acquired Pneumonia',
+                            probability: 87,
+                            reasoning: 'High fever with cough and hypoxemia indicates severe respiratory infection',
+                            wiki: 'https://en.wikipedia.org/wiki/Pneumonia'
                         });
-                        urgency = 'HIGH';
-                        recommendations.push('Immediate chest X-ray required');
-                        recommendations.push('Consider ICU admission');
-                        recommendations.push('Start broad-spectrum antibiotics');
-                    } else if (vitals.temperature > 99.5) {
-                        conditions.push({
-                            name: 'Moderate Pneumonia',
-                            probability: 70,
-                            reasoning: 'Fever with respiratory symptoms suggests lung infection'
-                        });
-                        urgency = 'MEDIUM';
-                        recommendations.push('Chest X-ray recommended');
-                        recommendations.push('Antibiotic therapy');
-                    }
-                } else if (symptoms.cough && symptoms.soreThroat && symptoms.fever) {
-                    if (vitals.temperature < 101) {
-                        conditions.push({
-                            name: 'Upper Respiratory Infection',
-                            probability: 75,
-                            reasoning: 'Mild fever with throat and cough symptoms indicates viral URI'
-                        });
-                        urgency = 'LOW';
-                        recommendations.push('Rest and hydration');
-                        recommendations.push('Symptomatic treatment');
+                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+                        recommendations.push('Hospitalization required');
+                        recommendations.push('Chest X-ray and blood cultures');
+                        recommendations.push('Broad-spectrum antibiotics');
+                        recommendations.push('Oxygen therapy');
                     }
                 }
 
-                if (symptoms.chestPain && symptoms.shortnessOfBreath) {
-                    if (vitals.heartRate > 100 || vitals.bloodPressure.split('/')[0] > 140) {
-                        conditions.push({
-                            name: 'Acute Coronary Syndrome',
-                            probability: 80,
-                            reasoning: 'Chest pain + dyspnea + tachycardia suggests cardiac emergency'
-                        });
-                        urgency = 'CRITICAL';
-                        recommendations.push('IMMEDIATE ECG and troponin levels');
-                        recommendations.push('Activate cardiac catheterization lab');
-                        recommendations.push('Aspirin and anticoagulation');
-                    } else {
-                        conditions.push({
-                            name: 'Angina Pectoris',
-                            probability: 60,
-                            reasoning: 'Chest pain with exertion may indicate stable angina'
-                        });
-                        urgency = 'MEDIUM';
-                        recommendations.push('Stress test recommended');
-                        recommendations.push('Cardiology consultation');
-                    }
-                }
-
+                // GASTROINTESTINAL
                 if (symptoms.abdominalPain && symptoms.nausea) {
                     if (symptoms.fever && labResults.wbcCount > 11000) {
                         conditions.push({
                             name: 'Acute Appendicitis',
-                            probability: 75,
-                            reasoning: 'Abdominal pain + fever + elevated WBC suggests appendicitis'
+                            probability: 82,
+                            reasoning: 'Abdominal pain + fever + elevated WBC suggests appendicitis',
+                            wiki: 'https://en.wikipedia.org/wiki/Appendicitis'
                         });
-                        urgency = 'HIGH';
-                        recommendations.push('Immediate surgical consultation');
+                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+                        recommendations.push('URGENT: Immediate surgical consultation');
                         recommendations.push('Abdominal CT scan');
-                        recommendations.push('NPO (nothing by mouth)');
-                    } else if (!symptoms.fever) {
+                        recommendations.push('NPO status');
+                    } else {
                         conditions.push({
                             name: 'Gastroenteritis',
-                            probability: 65,
-                            reasoning: 'GI symptoms without fever suggests viral gastroenteritis'
-                        });
-                        urgency = 'LOW';
-                        recommendations.push('Oral rehydration');
-                        recommendations.push('Monitor for dehydration');
-                    }
-                }
-
-                if (symptoms.jointPain && symptoms.fatigue) {
-                    if (labResults.crpLevel > 10 && symptoms.fever) {
-                        conditions.push({
-                            name: 'Rheumatoid Arthritis Flare',
                             probability: 70,
-                            reasoning: 'Joint pain + elevated CRP + systemic symptoms'
+                            reasoning: 'GI symptoms suggest gastroenteritis',
+                            wiki: 'https://en.wikipedia.org/wiki/Gastroenteritis'
                         });
-                        urgency = 'MEDIUM';
-                        recommendations.push('Rheumatology consultation');
-                        recommendations.push('Anti-inflammatory medication');
-                        recommendations.push('RF and anti-CCP antibody tests');
+                        recommendations.push('Oral rehydration solution');
+                        recommendations.push('Bland diet (BRAT)');
+                        recommendations.push('Anti-emetics if severe');
                     }
                 }
 
-                if (symptoms.headache && symptoms.dizziness) {
-                    if (symptoms.fever && symptoms.nausea) {
-                        conditions.push({
-                            name: 'Meningitis',
-                            probability: 65,
-                            reasoning: 'Headache + fever + nausea requires meningitis evaluation'
-                        });
-                        urgency = 'HIGH';
-                        recommendations.push('Lumbar puncture indicated');
-                        recommendations.push('Blood cultures');
-                        recommendations.push('Empiric antibiotics if bacterial suspected');
-                    } else if (vitals.bloodPressure.split('/')[0] > 160) {
-                        conditions.push({
-                            name: 'Hypertensive Emergency',
-                            probability: 70,
-                            reasoning: 'Severe headache with elevated BP'
-                        });
-                        urgency = 'HIGH';
-                        recommendations.push('Immediate BP lowering');
-                        recommendations.push('Neurological monitoring');
-                    }
-                }
-
-                if (symptoms.rashSkin && symptoms.fever) {
-                    if (symptoms.jointPain) {
-                        conditions.push({
-                            name: 'Viral Exanthem with Arthritis',
-                            probability: 60,
-                            reasoning: 'Rash + fever + joint involvement'
-                        });
-                        urgency = 'MEDIUM';
-                        recommendations.push('Viral panel testing');
-                        recommendations.push('Monitor for progression');
-                    }
-                }
-
-                if (conditions.length === 0) {
+                // FEVER ALONE
+                if (symptoms.fever && !conditions.length) {
                     conditions.push({
-                        name: 'Non-specific Symptoms',
-                        probability: 40,
-                        reasoning: 'Symptoms do not match clear diagnostic pattern'
-                    });
-                    recommendations.push('Continue monitoring');
-                    recommendations.push('Follow-up in 24-48 hours');
-                    recommendations.push('Return if symptoms worsen');
+                        name: 'Fever of Unknown Origin',
+                        probability: 65,
+                        reasoning: 'Isolated fever requires investigation',
+                        wiki: 'https://en.wikipedia.org/wiki/Fever'
+                        });
+                    recommendations.push('Monitor temperature every 4-6 hours');
+                    recommendations.push('Acetaminophen 650mg every 6 hours');
+                    recommendations.push('Increase fluid intake');
+                    recommendations.push('Blood work if fever persists >72 hours');
+                }
+
+                // DEFAULT
+                if (conditions.length === 0) {
+                    if (symptomCount > 0) {
+                        conditions.push({
+                            name: 'Non-Specific Symptoms',
+                            probability: 55,
+                            reasoning: 'Symptom pattern requires comprehensive assessment',
+                            wiki: 'https://en.wikipedia.org/wiki/Medical_diagnosis'
+                        });
+                        recommendations.push('Comprehensive physical examination');
+                        recommendations.push('Basic laboratory workup');
+                        recommendations.push('Follow-up in 7-10 days');
+                    } else {
+                        conditions.push({
+                            name: 'No Significant Findings',
+                            probability: 50,
+                            reasoning: 'No symptoms reported - routine health maintenance',
+                            wiki: 'https://en.wikipedia.org/wiki/Preventive_healthcare'
+                        });
+                        recommendations.push('Maintain healthy lifestyle');
+                        recommendations.push('Regular exercise');
+                        recommendations.push('Balanced diet');
+                        recommendations.push('Annual wellness visit');
+                    }
                 }
 
                 conditions.sort((a, b) => b.probability - a.probability);
 
                 setDiagnosis({
-                    conditions: conditions,
-                    urgency: urgency,
-                    recommendations: recommendations,
+                    conditions,
+                    urgency,
+                    recommendations,
+                    patientInfo,
+                    vitals,
+                    labResults,
+                    bmi,
+                    symptomCount,
                     timestamp: new Date().toLocaleString()
                 });
             };
+
 
             const sendChatMessage = async () => {
                 if (!chatInput.trim()) return;
 
                 const userMessage = { role: 'user', content: chatInput };
                 setChatMessages(prev => [...prev, userMessage]);
-                const query = chatInput.toLowerCase();
                 setChatInput('');
                 setIsLoading(true);
 
-                // Simulate processing delay
-                await new Promise(resolve => setTimeout(resolve, 800));
+                try {
+                    const systemPrompt = `You are MediBot, an advanced medical AI for the Tagore Medical Robotics Platform. Provide professional, empathetic medical guidance.
 
-                let response = '';
-                
-                // Get conversation context from last few messages
-                const recentMessages = chatMessages.slice(-4).map(m => m.content.toLowerCase()).join(' ');
-                const fullContext = (recentMessages + ' ' + query).toLowerCase();
+${diagnosis ? `PATIENT CONTEXT:
+- Diagnosis: ${diagnosis.conditions[0].name} (${diagnosis.conditions[0].probability}% confidence)
+- Reasoning: ${diagnosis.conditions[0].reasoning}
+- Patient: Age ${diagnosis.patientInfo.age}, BMI ${diagnosis.bmi}
+- Urgency: ${diagnosis.urgency}
+- Symptoms: ${diagnosis.symptomCount} active
+- Vitals: Temp ${diagnosis.vitals.temperature}°F, HR ${diagnosis.vitals.heartRate}, SpO2 ${diagnosis.vitals.oxygenSaturation}%
 
-                // Check for explanation/simplification requests
-                if (query.includes('explain') || query.includes('simple') || query.includes('layman') || 
-                    query.includes('non medical') || query.includes('easy') || query.includes('understand')) {
-                    
-                    if (fullContext.includes('cough')) {
-                        response = 'Let me explain cough in simpler terms. A cough is your body\'s way of clearing your airways. It can be "dry" (just air) or "wet/productive" (with mucus). Common causes include common colds, allergies, acid reflux from your stomach, or asthma. You should see a doctor if it lasts more than 3 weeks, you\'re coughing up blood, losing weight unexpectedly, or having trouble breathing. Most coughs from colds go away on their own with rest, fluids, and honey (for adults). For persistent coughs, treatment depends on the cause - allergies need allergy medicine, acid reflux needs antacids, and bacterial infections might need antibiotics.';
-                    } else if (fullContext.includes('palpitation')) {
-                        response = 'Palpitations are when you can feel your heart beating - it might feel like it\'s racing, fluttering, or skipping beats. Common causes include stress, caffeine, exercise, or anxiety. While usually harmless, see a doctor if you also have chest pain, dizziness, shortness of breath, or if they happen frequently. Treatment depends on the cause but often involves reducing caffeine, managing stress, staying hydrated, and getting enough sleep.';
-                    } else {
-                        response = 'I\'d be happy to explain medical concepts in simpler terms. Could you let me know which specific condition, symptom, or treatment you\'d like me to explain? For example, I can break down terms like hypertension (high blood pressure), diabetes, medications, or any symptoms you\'re curious about.';
+Top Recommendations: ${diagnosis.recommendations.slice(0, 3).join('; ')}` : 'No active diagnosis. Ready to discuss general medical topics.'}
+
+Be conversational, warm, and clear. Explain medical concepts without jargon. Reference the diagnosis when relevant. You are MediBot.`;
+
+                    // Build conversation history for Gemini
+                    let conversationText = systemPrompt + '\n\nConversation History:\n';
+                    chatMessages.forEach(msg => {
+                        conversationText += `${msg.role === 'user' ? 'User' : 'MediBot'}: ${msg.content}\n`;
+                    });
+                    conversationText += `User: ${chatInput}\n\nMediBot:`;
+
+                    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDah9hHY8k-0AefktjdewMc5ZsMW5JYeNU`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{
+                                parts: [{
+                                    text: conversationText
+                                }]
+                            }],
+                            generationConfig: {
+                                temperature: 0.7,
+                                maxOutputTokens: 1000
+                            }
+                        })
+                    });
+
+                    console.log('Response status:', response.status);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        console.error('API Error:', errorData);
+                        throw new Error(`API Error: ${response.status} - ${JSON.stringify(errorData)}`);
                     }
-                }
-                // Check for treatment/cure questions
-                else if (query.includes('cure') || query.includes('treat') || query.includes('fix') || 
-                         query.includes('heal') || query.includes('remedy') || query.includes('help')) {
-                    
-                    if (fullContext.includes('palpitation')) {
-                        response = 'For palpitations, treatment focuses on addressing the underlying cause. If they\'re caused by anxiety or stress, relaxation techniques, deep breathing exercises, and stress management can help significantly. Lifestyle changes include reducing caffeine and alcohol, staying hydrated, getting regular sleep, and avoiding triggers. If palpitations are due to an irregular heart rhythm (arrhythmia), your doctor might prescribe beta-blockers or other heart medications. For severe cases, procedures like catheter ablation might be considered. Most importantly, identify and avoid your personal triggers - common ones include energy drinks, certain medications, smoking, and excessive exercise without proper conditioning.';
-                    } else if (fullContext.includes('cough')) {
-                        response = 'Cough treatment depends on the cause. For viral coughs (common cold), rest, stay hydrated, use honey (1-2 teaspoons for adults), and consider over-the-counter cough suppressants. For bacterial infections, antibiotics are needed. If it\'s allergy-related, antihistamines help. For acid reflux causing cough, avoid late meals, elevate your head when sleeping, and consider antacids. For asthma-related cough, inhalers prescribed by your doctor are essential. Home remedies that can help: warm tea with honey, steam inhalation, staying in humid environments, and avoiding irritants like smoke. See a doctor if the cough persists beyond 3 weeks or worsens.';
-                    } else if (fullContext.includes('blood pressure') || fullContext.includes('hypertension')) {
-                        response = 'High blood pressure treatment involves both lifestyle changes and medication. Lifestyle modifications include: reducing salt intake (under 2300mg daily), regular exercise (30 minutes most days), maintaining healthy weight, limiting alcohol, quitting smoking, managing stress, and eating more fruits, vegetables, and whole grains (DASH diet). If lifestyle changes aren\'t enough, medications like ACE inhibitors, ARB blockers, calcium channel blockers, or diuretics may be prescribed. Regular monitoring at home and doctor visits are important. Many people need lifelong treatment, but good control prevents heart attacks, strokes, and kidney disease.';
-                    } else {
-                        response = 'I can help with treatment information! Could you specify what condition or symptom you\'re asking about? For example, are you asking about treating a cough, fever, pain, high blood pressure, or something else? The more specific you are, the better I can help.';
-                    }
-                }
-                // Specific conditions
-                else if (query.includes('palpitation') || query.includes('heart racing') || query.includes('heart beat')) {
-                    response = 'Palpitations are sensations where you become aware of your heartbeat - it may feel like your heart is pounding, fluttering, racing, or skipping beats. Common causes include stress and anxiety, caffeine or stimulants, intense exercise, hormonal changes, certain medications, dehydration, or heart rhythm abnormalities. While palpitations are usually harmless and temporary, seek immediate medical attention if accompanied by chest pain, severe shortness of breath, dizziness or fainting, or lasting more than a few minutes. Evaluation typically includes detailed history, physical exam, ECG, and possibly a Holter monitor to record your heart rhythm over 24-48 hours. Management depends on the underlying cause and may include lifestyle modifications, stress reduction, or medications if needed.';
-                } else if (query.includes('cough')) {
-                    response = 'A cough is a reflex that helps clear your airways of mucus, irritants, or foreign particles. Coughs can be acute (lasting less than 3 weeks, usually from colds or flu), subacute (3-8 weeks, often post-viral), or chronic (over 8 weeks). Common causes include viral upper respiratory infections, post-nasal drip, asthma, gastroesophageal reflux (GERD), or chronic conditions like COPD. Warning signs requiring medical evaluation include coughing up blood, severe shortness of breath, high fever, chest pain, unintended weight loss, or cough lasting over 3 weeks. Evaluation may include chest X-ray, spirometry for lung function, or other tests based on suspected cause. Treatment targets the underlying condition - viral coughs typically resolve with supportive care, while bacterial infections need antibiotics, asthma requires inhalers, and GERD responds to acid-reducing medications.';
-                } else if (query.includes('fever') || query.includes('temperature')) {
-                    response = 'Fever is an elevation in body temperature above 100.4°F (38°C), often indicating your body is fighting an infection. Common causes include viral infections (colds, flu, COVID-19), bacterial infections, inflammatory conditions, or heat-related illness. Fever itself is not dangerous unless very high (over 104°F) or prolonged. Seek medical care if fever lasts more than 3 days, exceeds 103°F in adults, is accompanied by severe headache, stiff neck, confusion, difficulty breathing, chest pain, or severe abdominal pain. For infants under 3 months, any fever warrants immediate medical evaluation. Treatment includes rest, hydration, and fever reducers like acetaminophen or ibuprofen. Let moderate fevers run their course as they help fight infection, but treat if causing significant discomfort.';
-                } else if (query.includes('blood pressure') || query.includes('hypertension') || query.includes('bp')) {
-                    response = 'Blood pressure measures the force of blood against artery walls, recorded as two numbers - systolic (pressure during heartbeats) over diastolic (pressure between beats). Normal is below 120/80 mmHg. Elevated is 120-129 systolic with diastolic below 80. Hypertension Stage 1 is 130-139 systolic or 80-89 diastolic. Stage 2 is 140+ systolic or 90+ diastolic. High blood pressure often has no symptoms but damages arteries, heart, kidneys, and brain over time, increasing risk of heart attack and stroke. Risk factors include family history, age, obesity, high salt diet, lack of exercise, excessive alcohol, and smoking. Management starts with lifestyle changes - weight loss, exercise, reduced sodium, limited alcohol, and stress management. Medications are added if needed, including ACE inhibitors, ARBs, calcium channel blockers, or diuretics. Regular monitoring and medication adherence are crucial for preventing complications.';
-                } else if (query.includes('diabetes') || query.includes('sugar') || query.includes('glucose')) {
-                    response = 'Diabetes is a condition where your body cannot properly regulate blood sugar levels. Type 1 diabetes is autoimmune - the pancreas produces little or no insulin. Type 2 diabetes, the most common form, occurs when your body becomes resistant to insulin or doesn\'t produce enough. Symptoms include increased thirst and urination, unexplained weight loss, fatigue, blurred vision, and slow-healing wounds. Diagnosis is made through blood tests - fasting glucose over 126 mg/dL or A1C over 6.5%. Complications of uncontrolled diabetes include heart disease, kidney damage, nerve damage, vision loss, and foot problems. Management includes blood sugar monitoring, healthy eating (controlling carbohydrates), regular exercise, weight management, and medications. Type 1 requires insulin. Type 2 may be managed with metformin, other oral medications, or insulin. Regular check-ups monitor for complications. Many with Type 2 can achieve remission through significant weight loss and lifestyle changes.';
-                } else if (query.includes('headache') || query.includes('migraine')) {
-                    response = 'Headaches are very common and have many causes. Tension headaches feel like a tight band around your head, often from stress or poor posture. Migraines cause intense throbbing pain, usually on one side, often with nausea, light sensitivity, and visual disturbances. Cluster headaches are severe, occur in cycles, and center around one eye. Secondary headaches result from other conditions like sinus infections, high blood pressure, or head injury. Seek immediate care for "thunderclap" headache (sudden and severe), headache with fever and stiff neck, after head injury, with confusion or vision changes, or if it\'s the worst headache of your life. Most headaches respond to rest, hydration, stress management, and over-the-counter pain relievers like ibuprofen or acetaminophen. Migraines may require prescription medications. Keeping a headache diary helps identify triggers like certain foods, stress, sleep changes, or hormonal fluctuations.';
-                } else if (query.includes('stomach') || query.includes('nausea') || query.includes('vomit') || query.includes('diarrhea')) {
-                    response = 'Gastrointestinal symptoms like nausea, vomiting, and diarrhea commonly result from viral gastroenteritis ("stomach flu"), food poisoning, or reactions to medications. Viral gastroenteritis typically causes watery diarrhea, nausea, vomiting, stomach cramps, and sometimes low-grade fever, lasting 1-3 days. Food poisoning has similar symptoms but starts within hours of eating contaminated food. Treatment focuses on preventing dehydration - sip clear fluids frequently, try bland foods (bananas, rice, applesauce, toast), and rest. Seek medical care if you cannot keep fluids down for 24 hours, see blood in vomit or stool, have signs of severe dehydration (dizziness, dark urine, dry mouth), or have high fever or severe abdominal pain. For diarrhea, avoid dairy, fatty foods, and caffeine until recovered. Probiotics may help restore gut bacteria. Most cases resolve without medication, but severe cases might need anti-nausea medication or IV fluids.';
-                } else if (query.includes('pain') || query.includes('hurt') || query.includes('ache')) {
-                    response = 'Pain is your body\'s warning system signaling tissue damage or potential harm. Acute pain comes on suddenly and usually has a clear cause like injury or surgery. Chronic pain persists beyond normal healing time, lasting months or years. Pain assessment considers location, intensity (0-10 scale), quality (sharp, dull, burning, aching), and factors that worsen or relieve it. For mild to moderate pain, start with non-drug approaches like ice, heat, rest, elevation, and gentle movement. Over-the-counter options include acetaminophen (Tylenol) for general pain, or NSAIDs like ibuprofen or naproxen for pain with inflammation. For severe acute pain, prescription medications may be needed. Chronic pain requires multimodal approach - physical therapy, psychological support, lifestyle modifications, and medications. Seek immediate care for chest pain, severe abdominal pain, pain with fever, or pain that\'s suddenly much worse. Never ignore pain that\'s persistent or worsening.';
-                } else if (query.includes('allerg')) {
-                    response = 'Allergies occur when your immune system overreacts to normally harmless substances like pollen, pet dander, foods, or medications. Symptoms vary by allergen and may include sneezing, runny nose, itchy eyes, skin rashes, or digestive issues. Severe allergic reactions (anaphylaxis) can cause difficulty breathing, swelling of face/throat, rapid pulse, and dizziness - this is a medical emergency requiring immediate epinephrine injection and emergency care. Common allergies include seasonal allergies (hay fever) from pollen, food allergies (especially nuts, shellfish, eggs, milk), pet allergies, dust mites, and medications. Management includes avoiding triggers when possible, antihistamines for mild symptoms, nasal corticosteroid sprays for nasal symptoms, and carrying an epinephrine auto-injector if at risk for severe reactions. Allergy testing can identify specific triggers. Immunotherapy (allergy shots or tablets) can help desensitize you to certain allergens over time.';
-                } else if (query.includes('asthma') || query.includes('wheez') || query.includes('breathing')) {
-                    response = 'Asthma is a chronic condition where airways become inflamed and narrowed, making breathing difficult. Symptoms include wheezing (whistling sound when breathing), shortness of breath, chest tightness, and coughing, especially at night or with exercise. Asthma attacks can be triggered by allergens, exercise, cold air, smoke, stress, or respiratory infections. Diagnosis involves lung function tests (spirometry) and assessment of symptoms. Management uses two types of inhalers: quick-relief inhalers (usually albuterol) for immediate symptom relief during attacks, and controller inhalers (usually corticosteroids) taken daily to prevent symptoms. An asthma action plan helps you know when to adjust medications and when to seek emergency care. Seek immediate help for severe shortness of breath, blue lips, confusion, or if quick-relief inhaler doesn\'t help within 15-20 minutes. Good asthma control means few symptoms, normal activity levels, and rare need for quick-relief medication.';
-                } else {
-                    response = 'Hello! I\'m MediBot, your medical assistant. I can help you understand various health conditions, symptoms, and treatments. I can explain medical concepts in simple terms or provide detailed clinical information for healthcare professionals. Feel free to ask me about specific symptoms (like cough, fever, pain), conditions (like diabetes, hypertension, asthma), or treatments. You can also ask me to explain something in simpler terms, or how to treat a specific condition. What would you like to know about?';
-                }
 
-                const assistantMessage = {
-                    role: 'assistant',
-                    content: response
-                };
-                setChatMessages(prev => [...prev, assistantMessage]);
+                    const data = await response.json();
+                    console.log('API Response:', data);
+                    
+                    if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
+                        const aiResponse = data.candidates[0].content.parts[0].text;
+                        setChatMessages(prev => [...prev, {
+                            role: 'assistant',
+                            content: aiResponse
+                        }]);
+                    } else {
+                        console.error('Invalid response structure:', data);
+                        throw new Error('Invalid API response structure');
+                    }
+                } catch (err) {
+                    console.error('Chat error details:', err);
+                    // Show the actual error in the chat for debugging
+                    let fallbackResponse = `⚠️ Connection Error: ${err.message}\n\n`;
+                    if (diagnosis) {
+                        fallbackResponse += `Based on your diagnosis of ${diagnosis.conditions[0].name}, the key recommendations are: ${diagnosis.recommendations.slice(0, 2).join(', ')}. For urgent concerns, please contact your healthcare provider.`;
+                    } else {
+                        fallbackResponse += 'Please check the browser console (F12) for detailed error information. For urgent medical concerns, contact your healthcare provider.';
+                    }
+                    setChatMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: fallbackResponse
+                    }]);
+                }
                 setIsLoading(false);
             };
-
             const runQATests = () => {
                 const tests = [];
 
@@ -359,17 +599,6 @@
                         name: 'Knee Implant Length Verification',
                         status: prostheticSpecs.length >= 120 && prostheticSpecs.length <= 180 ? 'PASS' : 'FAIL',
                         details: `Length: ${prostheticSpecs.length}mm (Range: 120-180mm)`
-                    });
-                    tests.push({
-                        name: 'Knee Implant Width Verification',
-                        status: prostheticSpecs.width >= 60 && prostheticSpecs.width <= 100 ? 'PASS' : 'FAIL',
-                        details: `Width: ${prostheticSpecs.width}mm (Range: 60-100mm)`
-                    });
-                } else if (prostheticSpecs.type === 'hip') {
-                    tests.push({
-                        name: 'Hip Implant Length Verification',
-                        status: prostheticSpecs.length >= 100 && prostheticSpecs.length <= 160 ? 'PASS' : 'FAIL',
-                        details: `Length: ${prostheticSpecs.length}mm (Range: 100-160mm)`
                     });
                 }
 
@@ -381,490 +610,539 @@
 
                 if (diagnosis) {
                     tests.push({
-                        name: 'Diagnostic Confidence Threshold',
+                        name: 'Diagnostic Confidence',
                         status: diagnosis.conditions[0].probability >= 60 ? 'PASS' : 'WARNING',
-                        details: `Top diagnosis confidence: ${diagnosis.conditions[0].probability}%`
-                    });
-                    tests.push({
-                        name: 'Urgency Assessment',
-                        status: diagnosis.urgency !== 'UNKNOWN' ? 'PASS' : 'FAIL',
-                        details: `Urgency level: ${diagnosis.urgency}`
+                        details: `Confidence: ${diagnosis.conditions[0].probability}%`
                     });
                 }
 
-                tests.push({
-                    name: 'Vital Signs Range Check',
-                    status: vitals.temperature < 105 && vitals.heartRate < 150 ? 'PASS' : 'WARNING',
-                    details: 'All vitals within acceptable ranges'
-                });
-
                 setQaResults({
-                    tests: tests,
-                    overallStatus: tests.every(t => t.status === 'PASS') ? 'PASS' : 
-                                   tests.some(t => t.status === 'FAIL') ? 'FAIL' : 'WARNING',
+                    tests,
+                    overallStatus: tests.every(t => t.status === 'PASS') ? 'PASS' : tests.some(t => t.status === 'FAIL') ? 'FAIL' : 'WARNING',
                     timestamp: new Date().toLocaleString()
                 });
             };
 
-            return (
-                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-                    <div className="max-w-7xl mx-auto">
-                        <div className="bg-white rounded-xl shadow-2xl overflow-hidden">
-                            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-                                <h1 className="text-3xl font-bold mb-2">Tagore Medical Robotics Platform</h1>
-                                <p className="text-blue-100">Integrated AI-Powered Medical Ecosystem</p>
-                                <p className="text-sm text-blue-200 mt-1">Gizmo Geeks 2025 - Tagore House</p>
+            // HOME PAGE
+            if (currentPage === 'home') {
+                return (
+                    <div className="min-h-screen flex items-center justify-center p-8">
+                        <div className="max-w-6xl w-full">
+                            <div className="text-center mb-16 animate-fade-in">
+                                <div className="inline-block gradient-green p-6 rounded-full mb-6 animate-float">
+                                    <Brain size={80} className="text-white" />
+                                </div>
+                                <h1 className="text-6xl font-bold text-emerald-900 mb-4 animate-slide-in-left">
+                                    Tagore Medical Robotics Platform
+                                </h1>
+                                <p className="text-2xl text-emerald-700 mb-2 animate-slide-in-right">AI-Powered Medical Ecosystem</p>
+                                <p className="text-emerald-600">Gizmo Geeks 2025 - Tagore House</p>
                             </div>
 
-                            <div className="flex border-b bg-gray-50 overflow-x-auto">
+                            <div className="grid md:grid-cols-2 gap-8">
                                 {[
-                                    { id: 'diagnostic', label: 'Diagnostic Engine', icon: Brain },
-                                    { id: 'chat', label: 'AI Assistant', icon: MessageSquare },
-                                    { id: 'prosthetic', label: 'Prosthetics', icon: Printer },
-                                    { id: 'qa', label: 'QA Testing', icon: TestTube }
-                                ].map(tab => (
-                                    <button
-                                        key={tab.id}
-                                        onClick={() => setActiveTab(tab.id)}
-                                        className={`flex items-center gap-2 px-6 py-4 font-medium transition-colors whitespace-nowrap ${
-                                            activeTab === tab.id
-                                                ? 'bg-white text-blue-600 border-b-2 border-blue-600'
-                                                : 'text-gray-600 hover:bg-gray-100'
-                                        }`}
+                                    { id: 'diagnostic', title: 'Diagnostic Engine', icon: Brain, desc: 'Advanced AI-powered diagnosis with comprehensive symptom analysis', color: 'emerald' },
+                                    { id: 'chat', title: 'AI Assistant', icon: MessageSquare, desc: 'Intelligent medical consultation with context-aware responses', color: 'green' },
+                                    { id: 'prosthetic', title: '3D Prosthetics', icon: Printer, desc: 'Real-time 3D visualization with precise measurements', color: 'teal' },
+                                    { id: 'qa', title: 'QA Testing', icon: TestTube, desc: 'Multi-layer quality assurance verification system', color: 'cyan' }
+                                ].map((item, idx) => (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => setCurrentPage(item.id)}
+                                        className={`medical-card p-8 rounded-2xl cursor-pointer hover-lift shadow-xl animate-fade-in`}
+                                        style={{ animationDelay: `${idx * 0.2}s` }}
                                     >
-                                        <tab.icon size={20} />
-                                        {tab.label}
-                                    </button>
+                                        <div className={`bg-gradient-to-br from-${item.color}-500 to-${item.color}-600 w-16 h-16 rounded-xl flex items-center justify-center mb-4`}>
+                                            <item.icon size={32} className="text-white" />
+                                        </div>
+                                        <h3 className="text-2xl font-bold text-gray-800 mb-2">{item.title}</h3>
+                                        <p className="text-gray-600">{item.desc}</p>
+                                        <button className="mt-4 text-emerald-600 font-semibold hover:text-emerald-700 transition">
+                                            Launch Module →
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
 
-                            <div className="p-6">
-                                {activeTab === 'diagnostic' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                                            <Brain className="text-blue-600" />
-                                            Rule-Based Diagnostic Engine
-                                        </h2>
+                            <div className="mt-12 text-center text-gray-600">
+                                <p className="font-semibold">Team: Aarush Manglunia, Arjun Patel, Arya Phad, Samaara Mohid</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
 
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div className="bg-gray-50 p-4 rounded-lg">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-700">Patient Symptoms</h3>
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    {Object.keys(symptoms).map(symptom => (
-                                                        <label key={symptom} className="flex items-center gap-2 cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={symptoms[symptom]}
-                                                                onChange={(e) => setSymptoms({...symptoms, [symptom]: e.target.checked})}
-                                                                className="w-4 h-4 text-blue-600"
-                                                            />
-                                                            <span className="text-sm capitalize">{symptom.replace(/([A-Z])/g, ' $1').trim()}</span>
-                                                        </label>
-                                                    ))}
-                                                </div>
+            // DIAGNOSTIC PAGE
+            if (currentPage === 'diagnostic') {
+                return (
+                    <div className="min-h-screen p-8">
+                        <div className="max-w-7xl mx-auto">
+                            <button onClick={() => setCurrentPage('home')} className="mb-6 text-emerald-600 hover:text-emerald-700 font-semibold">
+                                ← Back to Home
+                            </button>
+
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 animate-fade-in">
+                                <h2 className="text-4xl font-bold text-emerald-800 mb-8 flex items-center gap-4">
+                                    <Brain size={40} className="text-emerald-600" />
+                                    Advanced Diagnostic Engine
+                                </h2>
+
+                                <div className="grid md:grid-cols-3 gap-6 mb-8">
+                                    <div className="glass-morphism p-6 rounded-2xl hover-lift">
+                                        <h3 className="font-bold text-lg mb-4 text-emerald-800">Patient Information</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Age (years)</label>
+                                                <input type="number" value={patientInfo.age} onChange={(e) => setPatientInfo({ ...patientInfo, age: Math.max(0, Math.min(150, parseInt(e.target.value) || 0)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition" min="0" max="150" />
                                             </div>
-
-                                            <div className="bg-gray-50 p-4 rounded-lg">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-700">Vital Signs</h3>
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Temperature (°F)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={vitals.temperature}
-                                                            onChange={(e) => setVitals({...vitals, temperature: parseFloat(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                            step="0.1"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Heart Rate (bpm)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={vitals.heartRate}
-                                                            onChange={(e) => setVitals({...vitals, heartRate: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Blood Pressure</label>
-                                                        <input
-                                                            type="text"
-                                                            value={vitals.bloodPressure}
-                                                            onChange={(e) => setVitals({...vitals, bloodPressure: e.target.value})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                            placeholder="120/80"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">O2 Saturation (%)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={vitals.oxygenSaturation}
-                                                            onChange={(e) => setVitals({...vitals, oxygenSaturation: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Height (cm)</label>
+                                                <input type="number" value={patientInfo.height} onChange={(e) => setPatientInfo({ ...patientInfo, height: Math.max(50, Math.min(250, parseInt(e.target.value) || 0)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" min="50" max="250" />
                                             </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Weight (kg)</label>
+                                                <input type="number" value={patientInfo.weight} onChange={(e) => setPatientInfo({ ...patientInfo, weight: Math.max(1, Math.min(500, parseInt(e.target.value) || 0)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" min="1" max="500" />
+                                            </div>
+                                            <div className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-200">
+                                                <p className="text-sm font-bold text-emerald-800">BMI: {(patientInfo.weight / ((patientInfo.height / 100) ** 2)).toFixed(1)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
 
-                                            <div className="bg-gray-50 p-4 rounded-lg">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-700">Laboratory Results</h3>
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">WBC Count (cells/μL)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={labResults.wbcCount}
-                                                            onChange={(e) => setLabResults({...labResults, wbcCount: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">RBC Count (million/μL)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={labResults.rbcCount}
-                                                            onChange={(e) => setLabResults({...labResults, rbcCount: parseFloat(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                            step="0.1"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Platelet Count</label>
-                                                        <input
-                                                            type="number"
-                                                            value={labResults.plateletCount}
-                                                            onChange={(e) => setLabResults({...labResults, plateletCount: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">CRP Level (mg/L)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={labResults.crpLevel}
-                                                            onChange={(e) => setLabResults({...labResults, crpLevel: parseFloat(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                            step="0.1"
-                                                        />
-                                                    </div>
+                                    <div className="glass-morphism p-6 rounded-2xl hover-lift">
+                                        <h3 className="font-bold text-lg mb-4 text-emerald-800">Vital Signs</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Temperature (°F)</label>
+                                                <input type="number" value={vitals.temperature} onChange={(e) => setVitals({ ...vitals, temperature: Math.max(94, Math.min(110, parseFloat(e.target.value) || 98.6)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" step="0.1" min="94" max="110" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Heart Rate (bpm)</label>
+                                                <input type="number" value={vitals.heartRate} onChange={(e) => setVitals({ ...vitals, heartRate: Math.max(30, Math.min(220, parseInt(e.target.value) || 72)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" min="30" max="220" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Blood Pressure</label>
+                                                <input type="text" value={vitals.bloodPressure} onChange={(e) => setVitals({ ...vitals, bloodPressure: e.target.value })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" placeholder="120/80" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">O2 Saturation (%)</label>
+                                                <input type="number" value={vitals.oxygenSaturation} onChange={(e) => setVitals({ ...vitals, oxygenSaturation: Math.max(70, Math.min(100, parseInt(e.target.value) || 98)) })} className="w-full px-4 py-2 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition" min="70" max="100" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-morphism p-6 rounded-2xl hover-lift">
+                                        <h3 className="font-bold text-lg mb-4 text-emerald-800">Lab Results (5 Key Tests)</h3>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">WBC Count (/μL)</label>
+                                                <input type="number" value={labResults.wbcCount} onChange={(e) => setLabResults({ ...labResults, wbcCount: Math.max(1000, Math.min(50000, parseInt(e.target.value) || 7000)) })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Glucose (mg/dL)</label>
+                                                <input type="number" value={labResults.glucose} onChange={(e) => setLabResults({ ...labResults, glucose: Math.max(40, Math.min(600, parseInt(e.target.value) || 90)) })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">CRP (mg/L)</label>
+                                                <input type="number" value={labResults.crpLevel} onChange={(e) => setLabResults({ ...labResults, crpLevel: Math.max(0, Math.min(500, parseFloat(e.target.value) || 5)) })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" step="0.1" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Hemoglobin (g/dL)</label>
+                                                <input type="number" value={labResults.hemoglobin} onChange={(e) => setLabResults({ ...labResults, hemoglobin: Math.max(5, Math.min(20, parseFloat(e.target.value) || 14.0)) })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" step="0.1" />
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold">Creatinine (mg/dL)</label>
+                                                <input type="number" value={labResults.creatinine} onChange={(e) => setLabResults({ ...labResults, creatinine: Math.max(0.3, Math.min(10, parseFloat(e.target.value) || 1.0)) })} className="w-full px-3 py-2 border-2 border-emerald-200 rounded-lg focus:ring-2 focus:ring-emerald-500 transition" step="0.1" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="glass-morphism p-6 rounded-2xl mb-8 hover-lift">
+                                    <h3 className="font-bold text-lg mb-4 text-emerald-800">Patient Symptoms</h3>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {Object.keys(symptoms).map(symptom => (
+                                            <label key={symptom} className="flex items-center gap-2 cursor-pointer hover:bg-emerald-50 p-3 rounded-xl transition">
+                                                <input type="checkbox" checked={symptoms[symptom]} onChange={(e) => setSymptoms({ ...symptoms, [symptom]: e.target.checked })} className="w-5 h-5 text-emerald-600 rounded" />
+                                                <span className="text-sm font-medium capitalize">{symptom.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="glass-morphism p-6 rounded-2xl mb-8">
+                                    <h3 className="font-bold text-lg mb-4 text-emerald-800">Additional Comments</h3>
+                                    <textarea value={patientInfo.comments} onChange={(e) => setPatientInfo({ ...patientInfo, comments: e.target.value })} className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl h-24 resize-none focus:ring-2 focus:ring-emerald-500 transition" placeholder="Medical history, medications, allergies..." />
+                                </div>
+
+                                <button onClick={runDiagnosticEngine} className="w-full gradient-green text-white py-5 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 flex items-center justify-center gap-3 animate-glow">
+                                    <Brain size={28} />
+                                    Run Comprehensive Diagnostic Analysis
+                                </button>
+
+                                {diagnosis && (
+                                    <div className="mt-8 glass-morphism p-8 rounded-2xl border-4 border-emerald-300 animate-fade-in">
+                                        <div className="flex items-center justify-between mb-6">
+                                            <h3 className="text-3xl font-bold text-emerald-900">Diagnostic Results</h3>
+                                            <span className={`px-6 py-3 rounded-full font-bold text-lg shadow-xl ${diagnosis.urgency === 'CRITICAL' ? 'bg-red-600 text-white animate-pulse' : diagnosis.urgency === 'HIGH' ? 'bg-orange-500 text-white' : diagnosis.urgency === 'MEDIUM' ? 'bg-yellow-500 text-white' : 'bg-emerald-500 text-white'}`}>
+                                                {diagnosis.urgency} URGENCY
+                                            </span>
+                                        </div>
+
+                                        <div className="bg-gradient-to-r from-emerald-50 to-green-50 p-6 rounded-xl mb-6 border-2 border-emerald-200">
+                                            <div className="grid grid-cols-3 gap-4 text-center">
+                                                <div>
+                                                    <p className="text-3xl font-bold text-emerald-600">{diagnosis.symptomCount}</p>
+                                                    <p className="text-sm text-gray-600">Active Symptoms</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-3xl font-bold text-emerald-600">{diagnosis.conditions.length}</p>
+                                                    <p className="text-sm text-gray-600">Diagnoses</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-3xl font-bold text-emerald-600">{diagnosis.conditions[0].probability}%</p>
+                                                    <p className="text-sm text-gray-600">Confidence</p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        <button
-                                            onClick={runDiagnosticEngine}
-                                            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
-                                        >
-                                            Run Diagnostic Analysis
-                                        </button>
-
-                                        {diagnosis && (
-                                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <h3 className="text-xl font-bold text-gray-800">Diagnostic Results</h3>
-                                                    <span className={`px-4 py-2 rounded-full font-semibold ${
-                                                        diagnosis.urgency === 'CRITICAL' ? 'bg-red-600 text-white' :
-                                                        diagnosis.urgency === 'HIGH' ? 'bg-orange-500 text-white' :
-                                                        diagnosis.urgency === 'MEDIUM' ? 'bg-yellow-500 text-white' :
-                                                        'bg-green-500 text-white'
-                                                    }`}>
-                                                        {diagnosis.urgency} URGENCY
-                                                    </span>
-                                                </div>
-
-                                                <div className="space-y-4 mb-4">
-                                                    <h4 className="font-semibold text-gray-700">Possible Conditions:</h4>
-                                                    {diagnosis.conditions.map((condition, idx) => (
-                                                        <div key={idx} className="bg-white p-4 rounded-lg shadow">
-                                                            <div className="flex justify-between items-start mb-2">
-                                                                <h5 className="font-bold text-lg text-blue-600">{condition.name}</h5>
-                                                                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                                                                    {condition.probability}% confidence
-                                                                </span>
-                                                            </div>
-                                                            <p className="text-gray-600 text-sm italic">{condition.reasoning}</p>
+                                        <div className="space-y-4 mb-6">
+                                            {diagnosis.conditions.map((condition, idx) => (
+                                                <div key={idx} className="bg-white p-6 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
+                                                    <div className="flex justify-between items-start mb-3">
+                                                        <div className="flex-1">
+                                                            <h5 className="font-bold text-2xl text-emerald-700 mb-2">{condition.name}</h5>
+                                                            {condition.wiki && (
+                                                                <a href={condition.wiki} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:text-emerald-800 text-sm font-semibold">
+                                                                    📚 Learn more →
+                                                                </a>
+                                                            )}
                                                         </div>
-                                                    ))}
-                                                </div>
-
-                                                <div className="bg-white p-4 rounded-lg">
-                                                    <h4 className="font-semibold text-gray-700 mb-2">Recommendations:</h4>
-                                                    <ul className="list-disc list-inside space-y-1">
-                                                        {diagnosis.recommendations.map((rec, idx) => (
-                                                            <li key={idx} className="text-gray-700">{rec}</li>
-                                                        ))}
-                                                    </ul>
-                                                </div>
-
-                                                <p className="text-xs text-gray-500 mt-4">Generated: {diagnosis.timestamp}</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {activeTab === 'chat' && (
-                                    <div className="space-y-4">
-                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                                            <MessageSquare className="text-blue-600" />
-                                            Medical Assistant AI
-                                        </h2>
-
-                                        <div className="bg-gray-50 rounded-lg p-4 h-96 overflow-y-auto space-y-3">
-                                            {chatMessages.length === 0 && (
-                                                <div className="text-center text-gray-500 mt-20">
-                                                    <MessageSquare size={48} className="mx-auto mb-4 text-gray-400" />
-                                                    <p>Ask me about medical procedures, drug interactions, or protocols</p>
-                                                </div>
-                                            )}
-                                            {chatMessages.map((msg, idx) => (
-                                                <div
-                                                    key={idx}
-                                                    className={`p-3 rounded-lg ${
-                                                        msg.role === 'user'
-                                                            ? 'bg-blue-600 text-white ml-12'
-                                                            : 'bg-white text-gray-800 mr-12 shadow'
-                                                    }`}
-                                                >
-                                                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        <span className="bg-gradient-to-r from-emerald-100 to-green-100 text-emerald-800 px-5 py-2 rounded-full text-sm font-bold shadow-md ml-4">
+                                                            {condition.probability}%
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-gray-600 italic text-lg">{condition.reasoning}</p>
                                                 </div>
                                             ))}
-                                            {isLoading && (
-                                                <div className="bg-white p-3 rounded-lg mr-12 shadow">
-                                                    <p className="text-gray-500 italic">Processing...</p>
-                                                </div>
-                                            )}
                                         </div>
 
-                                        <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={chatInput}
-                                                onChange={(e) => setChatInput(e.target.value)}
-                                                onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
-                                                placeholder="Ask about procedures, medications, or protocols..."
-                                                className="flex-1 px-4 py-3 border rounded-lg"
-                                                disabled={isLoading}
-                                            />
-                                            <button
-                                                onClick={sendChatMessage}
-                                                disabled={isLoading}
-                                                className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-400"
-                                            >
-                                                Send
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {activeTab === 'prosthetic' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                                            <Printer className="text-blue-600" />
-                                            Prosthetics Manufacturing Unit
-                                        </h2>
-
-                                        <div className="grid md:grid-cols-2 gap-6">
-                                            <div className="bg-gray-50 p-4 rounded-lg">
-                                                <h3 className="font-semibold text-lg mb-3 text-gray-700">Implant Specifications</h3>
-                                                <div className="space-y-3">
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Implant Type</label>
-                                                        <select
-                                                            value={prostheticSpecs.type}
-                                                            onChange={(e) => setProstheticSpecs({...prostheticSpecs, type: e.target.value})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        >
-                                                            <option value="knee">Knee Replacement</option>
-                                                            <option value="hip">Hip Replacement</option>
-                                                            <option value="shoulder">Shoulder Implant</option>
-                                                            <option value="spinal">Spinal Implant</option>
-                                                        </select>
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Length (mm)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={prostheticSpecs.length}
-                                                            onChange={(e) => setProstheticSpecs({...prostheticSpecs, length: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Width (mm)</label>
-                                                        <input
-                                                            type="number"
-                                                            value={prostheticSpecs.width}
-                                                            onChange={(e) => setProstheticSpecs({...prostheticSpecs, width: parseInt(e.target.value)})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-sm text-gray-600">Material</label>
-                                                        <select
-                                                            value={prostheticSpecs.material}
-                                                            onChange={(e) => setProstheticSpecs({...prostheticSpecs, material: e.target.value})}
-                                                            className="w-full px-3 py-2 border rounded"
-                                                        >
-                                                            <option value="titanium">Medical-Grade Titanium</option>
-                                                            <option value="ceramic">Bioceramics</option>
-                                                            <option value="polymer">Biocompatible Polymer</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg border-2 border-blue-200">
-                                                <h3 className="font-semibold text-lg mb-4 text-gray-700">Manufacturing Preview</h3>
-                                                <div className="bg-white p-4 rounded-lg shadow-md mb-4">
-                                                    <div className="flex items-center justify-center h-48 bg-gray-100 rounded">
-                                                        <Printer size={64} className="text-blue-400" />
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2 text-sm">
-                                                    <p><strong>Type:</strong> {prostheticSpecs.type.toUpperCase()}</p>
-                                                    <p><strong>Dimensions:</strong> {prostheticSpecs.length}mm × {prostheticSpecs.width}mm</p>
-                                                    <p><strong>Material:</strong> {prostheticSpecs.material}</p>
-                                                    <p><strong>Estimated Print Time:</strong> {Math.floor(prostheticSpecs.length / 10)} hours</p>
-                                                </div>
-                                            </div>
+                                        <div className="bg-white p-6 rounded-2xl shadow-lg mb-6">
+                                            <h4 className="font-bold text-emerald-800 mb-4 text-xl">Clinical Recommendations:</h4>
+                                            <ul className="space-y-3">
+                                                {diagnosis.recommendations.map((rec, idx) => (
+                                                    <li key={idx} className="flex items-start gap-3">
+                                                        <span className="text-emerald-600 font-bold text-xl">•</span>
+                                                        <span className="text-gray-700 text-lg">{rec}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </div>
 
-                                        <button
-                                            onClick={runQATests}
-                                            className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors"
-                                        >
-                                            Validate Design & Run QA Tests
+                                        <button onClick={() => setCurrentPage('chat')} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 rounded-2xl font-bold text-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center gap-2">
+                                            <MessageSquare size={24} />
+                                            Discuss with MediBot AI
                                         </button>
-                                    </div>
-                                )}
-
-                                {activeTab === 'qa' && (
-                                    <div className="space-y-6">
-                                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                                            <TestTube className="text-blue-600" />
-                                            Quality Assurance & Verification System
-                                        </h2>
-
-                                        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                                            <h3 className="font-semibold text-gray-700 mb-2">Testing Protocol Overview</h3>
-                                            <p className="text-sm text-gray-600">
-                                                Multi-layered verification system ensuring safety, compatibility, and effectiveness across all platform modules.
-                                            </p>
-                                        </div>
-
-                                        <button
-                                            onClick={runQATests}
-                                            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                                        >
-                                            Run Complete QA Test Suite
-                                        </button>
-
-                                        {qaResults && (
-                                            <div className="space-y-4">
-                                                <div className={`p-4 rounded-lg border-2 ${
-                                                    qaResults.overallStatus === 'PASS' ? 'bg-green-50 border-green-500' :
-                                                    qaResults.overallStatus === 'FAIL' ? 'bg-red-50 border-red-500' :
-                                                    'bg-yellow-50 border-yellow-500'
-                                                }`}>
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        {qaResults.overallStatus === 'PASS' ? (
-                                                            <CheckCircle size={32} className="text-green-600" />
-                                                        ) : qaResults.overallStatus === 'FAIL' ? (
-                                                            <XCircle size={32} className="text-red-600" />
-                                                        ) : (
-                                                            <AlertCircle size={32} className="text-yellow-600" />
-                                                        )}
-                                                        <div>
-                                                            <h3 className="text-xl font-bold text-gray-800">
-                                                                Overall Status: {qaResults.overallStatus}
-                                                            </h3>
-                                                            <p className="text-sm text-gray-600">{qaResults.timestamp}</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-3">
-                                                    {qaResults.tests.map((test, idx) => (
-                                                        <div
-                                                            key={idx}
-                                                            className={`p-4 rounded-lg border ${
-                                                                test.status === 'PASS' ? 'bg-green-50 border-green-300' :
-                                                                test.status === 'FAIL' ? 'bg-red-50 border-red-300' :
-                                                                'bg-yellow-50 border-yellow-300'
-                                                            }`}
-                                                        >
-                                                            <div className="flex items-start justify-between">
-                                                                <div className="flex-1">
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        {test.status === 'PASS' ? (
-                                                                            <CheckCircle size={20} className="text-green-600" />
-                                                                        ) : test.status === 'FAIL' ? (
-                                                                            <XCircle size={20} className="text-red-600" />
-                                                                        ) : (
-                                                                            <AlertCircle size={20} className="text-yellow-600" />
-                                                                        )}
-                                                                        <h4 className="font-semibold text-gray-800">{test.name}</h4>
-                                                                    </div>
-                                                                    <p className="text-sm text-gray-600 ml-7">{test.details}</p>
-                                                                </div>
-                                                                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                                    test.status === 'PASS' ? 'bg-green-600 text-white' :
-                                                                    test.status === 'FAIL' ? 'bg-red-600 text-white' :
-                                                                    'bg-yellow-600 text-white'
-                                                                }`}>
-                                                                    {test.status}
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-
-                                                <div className="bg-gray-50 p-4 rounded-lg">
-                                                    <h4 className="font-semibold text-gray-700 mb-2">Test Summary</h4>
-                                                    <div className="grid grid-cols-3 gap-4 text-center">
-                                                        <div>
-                                                            <p className="text-2xl font-bold text-green-600">
-                                                                {qaResults.tests.filter(t => t.status === 'PASS').length}
-                                                            </p>
-                                                            <p className="text-sm text-gray-600">Passed</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-2xl font-bold text-yellow-600">
-                                                                {qaResults.tests.filter(t => t.status === 'WARNING').length}
-                                                            </p>
-                                                            <p className="text-sm text-gray-600">Warnings</p>
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-2xl font-bold text-red-600">
-                                                                {qaResults.tests.filter(t => t.status === 'FAIL').length}
-                                                            </p>
-                                                            <p className="text-sm text-gray-600">Failed</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {!qaResults && (
-                                            <div className="text-center py-12 text-gray-500">
-                                                <TestTube size={48} className="mx-auto mb-4 text-gray-400" />
-                                                <p>Run the test suite to view quality assurance results</p>
-                                            </div>
-                                        )}
                                     </div>
                                 )}
                             </div>
                         </div>
+                    </div>
+                );
+            }
 
-                        <div className="mt-6 text-center text-gray-600 text-sm">
-                            <p className="font-semibold">Team: Aarush Manglunia, Arjun Patel, Arya Phad, Samaara Mohid</p>
-                            <p className="text-xs mt-1">Gizmo Geeks 2025 - Tagore House</p>
+            // CHAT PAGE
+            if (currentPage === 'chat') {
+                return (
+                    <div className="min-h-screen p-8">
+                        <div className="max-w-6xl mx-auto">
+                            <button onClick={() => setCurrentPage('home')} className="mb-6 text-emerald-600 hover:text-emerald-700 font-semibold">
+                                ← Back to Home
+                            </button>
+
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 animate-fade-in">
+                                <div className="flex items-center justify-between mb-8">
+                                    <h2 className="text-4xl font-bold text-emerald-800 flex items-center gap-4">
+                                        <MessageSquare size={40} className="text-emerald-600" />
+                                        MediBot AI Assistant
+                                    </h2>
+                                    {diagnosis && (
+                                        <span className="bg-emerald-100 text-emerald-800 px-5 py-3 rounded-full font-bold shadow-lg animate-pulse">
+                                            🔗 Diagnosis Context Loaded
+                                        </span>
+                                    )}
+                                </div>
+
+                                <div className="glass-morphism rounded-3xl p-6 h-[600px] overflow-y-auto mb-6 shadow-inner">
+                                    {chatMessages.length === 0 && (
+                                        <div className="text-center text-gray-500 mt-40 animate-fade-in">
+                                            <div className="gradient-green p-8 rounded-full inline-block mb-6 animate-float">
+                                                <MessageSquare size={64} className="text-white" />
+                                            </div>
+                                            <p className="text-2xl mb-4 font-semibold text-emerald-800">Ask me anything about medical conditions</p>
+                                            {diagnosis && (
+                                                <div className="space-y-2">
+                                                    <p className="text-lg text-emerald-600">💡 I have context about your diagnosis!</p>
+                                                    <p className="text-md text-gray-600">Try asking:</p>
+                                                    <div className="flex flex-wrap gap-2 justify-center mt-3">
+                                                        <button onClick={() => setChatInput("Explain my diagnosis in simple terms")} className="bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full text-sm text-emerald-700 transition">
+                                                            "Explain my diagnosis"
+                                                        </button>
+                                                        <button onClick={() => setChatInput("What are the treatment options?")} className="bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full text-sm text-emerald-700 transition">
+                                                            "Treatment options?"
+                                                        </button>
+                                                        <button onClick={() => setChatInput("Should I be worried?")} className="bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full text-sm text-emerald-700 transition">
+                                                            "Should I be worried?"
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                    {chatMessages.map((msg, idx) => (
+                                        <div key={idx} className={msg.role === 'user' ? 'chat-user mb-4' : 'chat-ai mb-4'}>
+                                            <div className={`p-5 rounded-3xl shadow-xl ${msg.role === 'user' ? 'gradient-green text-white ml-16' : 'bg-white text-gray-800 mr-16 border-4 border-emerald-100'}`}>
+                                                <p className="whitespace-pre-wrap leading-relaxed text-lg">{msg.content}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                    {isLoading && (
+                                        <div className="chat-ai mb-4">
+                                            <div className="bg-white p-5 rounded-3xl mr-16 shadow-xl border-4 border-emerald-100">
+                                                <div className="flex gap-3 items-center">
+                                                    <div className="w-4 h-4 bg-emerald-600 rounded-full animate-pulse"></div>
+                                                    <div className="w-4 h-4 bg-emerald-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                                                    <div className="w-4 h-4 bg-emerald-600 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                                                    <span className="text-gray-600 ml-2">MediBot is thinking...</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex gap-4">
+                                    <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && !isLoading && sendChatMessage()} placeholder="Ask about conditions, treatments, medications, or your diagnosis..." className="flex-1 px-6 py-5 border-4 border-emerald-200 rounded-2xl focus:ring-4 focus:ring-emerald-500 focus:border-transparent transition-all duration-300 shadow-lg text-lg" disabled={isLoading} />
+                                    <button onClick={sendChatMessage} disabled={isLoading} className="gradient-green text-white px-10 py-5 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all duration-300 disabled:opacity-50 transform hover:scale-105">
+                                        Send
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
-            );
+                );
+            }
+
+            // PROSTHETIC PAGE
+            if (currentPage === 'prosthetic') {
+                return (
+                    <div className="min-h-screen p-8">
+                        <div className="max-w-7xl mx-auto">
+                            <button onClick={() => setCurrentPage('home')} className="mb-6 text-emerald-600 hover:text-emerald-700 font-semibold">
+                                ← Back to Home
+                            </button>
+
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 animate-fade-in">
+                                <h2 className="text-4xl font-bold text-emerald-800 mb-8 flex items-center gap-4">
+                                    <Printer size={40} className="text-emerald-600" />
+                                    3D Prosthetics Manufacturing Center
+                                </h2>
+
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <div className="glass-morphism p-6 rounded-2xl hover-lift">
+                                        <h3 className="font-bold text-lg mb-6 text-emerald-800">Implant Specifications</h3>
+                                        <div className="space-y-5">
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold block mb-2">Implant Type</label>
+                                                <select value={prostheticSpecs.type} onChange={(e) => setProstheticSpecs({ ...prostheticSpecs, type: e.target.value })} className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-lg">
+                                                    <option value="knee">Knee Replacement</option>
+                                                    <option value="hip">Hip Replacement</option>
+                                                    <option value="shoulder">Shoulder Implant</option>
+                                                    <option value="spinal">Spinal Implant</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold block mb-2">Length (mm): {prostheticSpecs.length}</label>
+                                                <input type="range" value={prostheticSpecs.length} onChange={(e) => setProstheticSpecs({ ...prostheticSpecs, length: parseInt(e.target.value) })} className="w-full" min="50" max="300" />
+                                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                                    <span>50mm</span>
+                                                    <span>300mm</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold block mb-2">Width (mm): {prostheticSpecs.width}</label>
+                                                <input type="range" value={prostheticSpecs.width} onChange={(e) => setProstheticSpecs({ ...prostheticSpecs, width: parseInt(e.target.value) })} className="w-full" min="20" max="150" />
+                                                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                                    <span>20mm</span>
+                                                    <span>150mm</span>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-sm text-gray-700 font-semibold block mb-2">Material</label>
+                                                <select value={prostheticSpecs.material} onChange={(e) => setProstheticSpecs({ ...prostheticSpecs, material: e.target.value })} className="w-full px-4 py-3 border-2 border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 transition text-lg">
+                                                    <option value="titanium">Medical-Grade Titanium</option>
+                                                    <option value="ceramic">Bioceramics</option>
+                                                    <option value="polymer">Biocompatible Polymer</option>
+                                                </select>
+                                            </div>
+                                            <div className="bg-emerald-50 p-4 rounded-xl border-2 border-emerald-200 space-y-2">
+                                                <p className="text-sm"><strong className="text-emerald-700">Type:</strong> {prostheticSpecs.type.charAt(0).toUpperCase() + prostheticSpecs.type.slice(1)}</p>
+                                                <p className="text-sm"><strong className="text-emerald-700">Dimensions:</strong> {prostheticSpecs.length}mm × {prostheticSpecs.width}mm</p>
+                                                <p className="text-sm"><strong className="text-emerald-700">Material:</strong> {prostheticSpecs.material === 'titanium' ? 'Titanium' : prostheticSpecs.material === 'ceramic' ? 'Bioceramics' : 'PEEK Polymer'}</p>
+                                                <p className="text-sm"><strong className="text-emerald-700">Print Time:</strong> {Math.floor(prostheticSpecs.length / 10)} hours</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="glass-morphism p-6 rounded-2xl border-4 border-emerald-300">
+                                        <h3 className="font-bold text-lg mb-4 text-emerald-800">Real-Time 3D Visualization</h3>
+                                        <ThreeModel specs={prostheticSpecs} />
+                                        <div className="mt-4 bg-gradient-to-r from-emerald-100 to-green-100 p-4 rounded-xl">
+                                            <p className="text-sm text-emerald-800 font-semibold text-center">
+                                                🔄 Interactive 3D model • Updates in real-time
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onClick={runQATests} className="w-full mt-8 gradient-green text-white py-5 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all  duration-300 transform hover:scale-105 animate-glow">
+                                    Validate Design & Run Quality Assurance
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // QA PAGE
+            if (currentPage === 'qa') {
+                return (
+                    <div className="min-h-screen p-8">
+                        <div className="max-w-6xl mx-auto">
+                            <button onClick={() => setCurrentPage('home')} className="mb-6 text-emerald-600 hover:text-emerald-700 font-semibold">
+                                ← Back to Home
+                            </button>
+
+                            <div className="bg-white rounded-3xl shadow-2xl p-8 animate-fade-in">
+                                <h2 className="text-4xl font-bold text-emerald-800 mb-8 flex items-center gap-4">
+                                    <TestTube size={40} className="text-emerald-600" />
+                                    Quality Assurance & Validation System
+                                </h2>
+
+                                <div className="glass-morphism p-6 rounded-2xl mb-8 border-2 border-emerald-200">
+                                    <h3 className="font-bold text-xl text-emerald-800 mb-3">Comprehensive Testing Protocol</h3>
+                                    <p className="text-gray-700 text-lg mb-4">
+                                        Advanced verification across diagnostic accuracy, prosthetic specifications, and clinical safety.
+                                    </p>
+                                    <div className="grid md:grid-cols-3 gap-4">
+                                        <div className="bg-emerald-50 p-4 rounded-xl">
+                                            <p className="font-bold text-emerald-800">Diagnostic Engine</p>
+                                            <p className="text-sm text-gray-600">Confidence & urgency validation</p>
+                                        </div>
+                                        <div className="bg-blue-50 p-4 rounded-xl">
+                                            <p className="font-bold text-blue-800">Prosthetic Design</p>
+                                            <p className="text-sm text-gray-600">Dimensional & material checks</p>
+                                        </div>
+                                        <div className="bg-purple-50 p-4 rounded-xl">
+                                            <p className="font-bold text-purple-800">Safety Compliance</p>
+                                            <p className="text-sm text-gray-600">ISO & FDA standards</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button onClick={runQATests} className="w-full gradient-green text-white py-5 rounded-2xl font-bold text-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 mb-8 animate-glow">
+                                    🔬 Execute Complete QA Test Suite
+                                </button>
+
+                                {qaResults && (
+                                    <div className="space-y-6 animate-fade-in">
+                                        <div className={`p-8 rounded-2xl border-4 ${qaResults.overallStatus === 'PASS' ? 'bg-emerald-50 border-emerald-500' : qaResults.overallStatus === 'FAIL' ? 'bg-red-50 border-red-500' : 'bg-yellow-50 border-yellow-500'}`}>
+                                            <div className="flex items-center gap-4 mb-4">
+                                                {qaResults.overallStatus === 'PASS' ? (
+                                                    <CheckCircle size={48} className="text-emerald-600" />
+                                                ) : qaResults.overallStatus === 'FAIL' ? (
+                                                    <XCircle size={48} className="text-red-600" />
+                                                ) : (
+                                                    <AlertCircle size={48} className="text-yellow-600" />
+                                                )}
+                                                <div>
+                                                    <h3 className="text-3xl font-bold text-gray-900">
+                                                        Overall Status: {qaResults.overallStatus}
+                                                    </h3>
+                                                    <p className="text-gray-600 text-lg">{qaResults.timestamp}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            {qaResults.tests.map((test, idx) => (
+                                                <div key={idx} className={`p-6 rounded-2xl border-2 ${test.status === 'PASS' ? 'bg-emerald-50 border-emerald-400' : test.status === 'FAIL' ? 'bg-red-50 border-red-400' : 'bg-yellow-50 border-yellow-400'}`}>
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-3 mb-2">
+                                                                {test.status === 'PASS' ? (
+                                                                    <CheckCircle size={24} className="text-emerald-600" />
+                                                                ) : test.status === 'FAIL' ? (
+                                                                    <XCircle size={24} className="text-red-600" />
+                                                                ) : (
+                                                                    <AlertCircle size={24} className="text-yellow-600" />
+                                                                )}
+                                                                <h4 className="font-bold text-lg text-gray-900">{test.name}</h4>
+                                                            </div>
+                                                            <p className="text-gray-700 ml-9">{test.details}</p>
+                                                        </div>
+                                                        <span className={`px-5 py-2 rounded-full text-sm font-bold ${test.status === 'PASS' ? 'bg-emerald-600 text-white' : test.status === 'FAIL' ? 'bg-red-600 text-white' : 'bg-yellow-600 text-white'}`}>
+                                                            {test.status}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="glass-morphism p-8 rounded-2xl">
+                                            <h4 className="font-bold text-xl text-emerald-800 mb-6">Test Summary</h4>
+                                            <div className="grid grid-cols-3 gap-6 text-center">
+                                                <div className="bg-emerald-100 p-6 rounded-2xl">
+                                                    <p className="text-5xl font-bold text-emerald-600 mb-2">
+                                                        {qaResults.tests.filter(t => t.status === 'PASS').length}
+                                                    </p>
+                                                    <p className="text-gray-700 font-semibold">Passed</p>
+                                                </div>
+                                                <div className="bg-yellow-100 p-6 rounded-2xl">
+                                                    <p className="text-5xl font-bold text-yellow-600 mb-2">
+                                                        {qaResults.tests.filter(t => t.status === 'WARNING').length}
+                                                    </p>
+                                                    <p className="text-gray-700 font-semibold">Warnings</p>
+                                                </div>
+                                                <div className="bg-red-100 p-6 rounded-2xl">
+                                                    <p className="text-5xl font-bold text-red-600 mb-2">
+                                                        {qaResults.tests.filter(t => t.status === 'FAIL').length}
+                                                    </p>
+                                                    <p className="text-gray-700 font-semibold">Failed</p>
+                                                </div>
+                                            </div>
+                                            <div className="mt-6 bg-white p-4 rounded-xl">
+                                                <p className="text-sm text-gray-600 text-center">
+                                                    Total Tests: <strong>{qaResults.tests.length}</strong> | Pass Rate: <strong>{((qaResults.tests.filter(t => t.status === 'PASS').length / qaResults.tests.length) * 100).toFixed(1)}%</strong>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!qaResults && (
+                                    <div className="text-center py-20 text-gray-500 animate-fade-in">
+                                        <div className="gradient-green p-8 rounded-full inline-block mb-6 animate-float">
+                                            <TestTube size={64} className="text-white" />
+                                        </div>
+                                        <p className="text-2xl font-semibold text-emerald-800 mb-4">Ready to Execute Quality Assurance</p>
+                                        <p className="text-gray-600">Run the test suite to validate all components</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
         };
 
         ReactDOM.render(<TagoreMedicalPlatform />, document.getElementById('root'));
