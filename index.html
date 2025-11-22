@@ -426,142 +426,423 @@
             });
             const [qaResults, setQaResults] = useState(null);
 
-            const runDiagnosticEngine = () => {
-                let conditions = [];
-                let urgency = 'LOW';
-                let recommendations = [];
+           const runDiagnosticEngine = () => {
+    let conditions = [];
+    let urgency = 'LOW';
+    let recommendations = [];
 
-                const bmi = (patientInfo.weight / ((patientInfo.height / 100) ** 2)).toFixed(1);
-                const symptomCount = Object.values(symptoms).filter(Boolean).length;
+    const bmi = (patientInfo.weight / ((patientInfo.height / 100) ** 2)).toFixed(1);
+    const symptomCount = Object.values(symptoms).filter(Boolean).length;
 
-                // Urgency based on symptom count
-                if (symptomCount > 10) urgency = 'HIGH';
-                else if (symptomCount > 5) urgency = 'MEDIUM';
+    // Urgency based on symptom count
+    if (symptomCount > 10) urgency = 'HIGH';
+    else if (symptomCount > 5) urgency = 'MEDIUM';
 
-                // CRITICAL - Chest Pain
-                if (symptoms.chestPain) {
-                    if (symptoms.shortnessOfBreath && vitals.heartRate > 100) {
-                        conditions.push({
-                            name: 'Acute Coronary Syndrome',
-                            probability: 88,
-                            reasoning: 'Chest pain with dyspnea and elevated heart rate suggests cardiac ischemia',
-                            wiki: 'https://en.wikipedia.org/wiki/Acute_coronary_syndrome'
-                        });
-                        urgency = 'CRITICAL';
-                        recommendations.push('IMMEDIATE: Call 911');
-                        recommendations.push('Give aspirin 325mg if available');
-                        recommendations.push('STAT ECG and cardiac troponins');
-                    } else {
-                        conditions.push({
-                            name: 'Cardiac Risk Assessment Required',
-                            probability: 72,
-                            reasoning: 'Chest pain requires cardiac evaluation',
-                            wiki: 'https://en.wikipedia.org/wiki/Chest_pain'
-                        });
-                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
-                        recommendations.push('URGENT: Emergency department evaluation');
-                        recommendations.push('12-lead ECG immediately');
-                        recommendations.push('Serial cardiac enzyme measurements');
-                    }
-                }
+    // CRITICAL - Chest Pain + Cardiac
+    if (symptoms.chestPain) {
+        if (symptoms.shortnessOfBreath && vitals.heartRate > 100) {
+            conditions.push({
+                name: 'Acute Coronary Syndrome',
+                probability: 88,
+                reasoning: 'Chest pain with dyspnea and elevated heart rate suggests cardiac ischemia',
+                wiki: 'https://en.wikipedia.org/wiki/Acute_coronary_syndrome'
+            });
+            urgency = 'CRITICAL';
+            recommendations.push('IMMEDIATE: Call 911');
+            recommendations.push('Give aspirin 325mg if available');
+            recommendations.push('STAT ECG and cardiac troponins');
+        } else if (symptoms.sweating && symptoms.nausea) {
+            conditions.push({
+                name: 'Myocardial Infarction Risk',
+                probability: 83,
+                reasoning: 'Chest pain with diaphoresis and nausea is classic MI presentation',
+                wiki: 'https://en.wikipedia.org/wiki/Myocardial_infarction'
+            });
+            urgency = 'CRITICAL';
+            recommendations.push('IMMEDIATE: Call 911');
+            recommendations.push('Chew aspirin 325mg');
+            recommendations.push('Emergency cardiac catheterization may be needed');
+        } else {
+            conditions.push({
+                name: 'Angina Pectoris',
+                probability: 75,
+                reasoning: 'Chest pain requires cardiac evaluation',
+                wiki: 'https://en.wikipedia.org/wiki/Angina'
+            });
+            urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+            recommendations.push('URGENT: Emergency department evaluation');
+            recommendations.push('12-lead ECG immediately');
+            recommendations.push('Cardiac stress test may be needed');
+        }
+    }
 
-                // RESPIRATORY
-                if (symptoms.fever && symptoms.cough && symptoms.shortnessOfBreath) {
-                    if (vitals.temperature > 100.4 && vitals.oxygenSaturation < 95) {
-                        conditions.push({
-                            name: 'Severe Community-Acquired Pneumonia',
-                            probability: 87,
-                            reasoning: 'High fever with cough and hypoxemia indicates severe respiratory infection',
-                            wiki: 'https://en.wikipedia.org/wiki/Pneumonia'
-                        });
-                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
-                        recommendations.push('Hospitalization required');
-                        recommendations.push('Chest X-ray and blood cultures');
-                        recommendations.push('Broad-spectrum antibiotics');
-                        recommendations.push('Oxygen therapy');
-                    }
-                }
+    // RESPIRATORY CONDITIONS
+    if (symptoms.fever && symptoms.cough && symptoms.shortnessOfBreath) {
+        if (vitals.temperature > 100.4 && vitals.oxygenSaturation < 95) {
+            conditions.push({
+                name: 'Severe Community-Acquired Pneumonia',
+                probability: 87,
+                reasoning: 'High fever with cough and hypoxemia indicates severe respiratory infection',
+                wiki: 'https://en.wikipedia.org/wiki/Pneumonia'
+            });
+            urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+            recommendations.push('Hospitalization required');
+            recommendations.push('Chest X-ray and blood cultures');
+            recommendations.push('Broad-spectrum antibiotics (Ceftriaxone + Azithromycin)');
+            recommendations.push('Oxygen therapy and respiratory support');
+        } else {
+            conditions.push({
+                name: 'Bronchitis with Lower Respiratory Infection',
+                probability: 78,
+                reasoning: 'Fever, cough, and breathing difficulty suggest bronchial infection',
+                wiki: 'https://en.wikipedia.org/wiki/Bronchitis'
+            });
+            urgency = 'MEDIUM';
+            recommendations.push('Rest and hydration');
+            recommendations.push('Chest X-ray to rule out pneumonia');
+            recommendations.push('Antibiotics if bacterial (Amoxicillin)');
+            recommendations.push('Bronchodilators for breathing relief');
+        }
+    } else if (symptoms.cough && symptoms.soreThroat && symptoms.fever) {
+        conditions.push({
+            name: 'Upper Respiratory Tract Infection',
+            probability: 82,
+            reasoning: 'Fever with cough and sore throat indicates URI',
+            wiki: 'https://en.wikipedia.org/wiki/Upper_respiratory_tract_infection'
+        });
+        recommendations.push('Rest for 7-10 days');
+        recommendations.push('Warm salt water gargles');
+        recommendations.push('Acetaminophen for fever and pain');
+        recommendations.push('Increase fluid intake');
+    } else if (symptoms.cough && symptoms.chestPain) {
+        conditions.push({
+            name: 'Pleurisy',
+            probability: 71,
+            reasoning: 'Cough with chest pain suggests pleural inflammation',
+            wiki: 'https://en.wikipedia.org/wiki/Pleurisy'
+        });
+        recommendations.push('Chest X-ray to assess pleural space');
+        recommendations.push('NSAIDs for pain management');
+        recommendations.push('Deep breathing exercises');
+        recommendations.push('Follow-up in 1 week');
+    }
 
-                // GASTROINTESTINAL
-                if (symptoms.abdominalPain && symptoms.nausea) {
-                    if (symptoms.fever && labResults.wbcCount > 11000) {
-                        conditions.push({
-                            name: 'Acute Appendicitis',
-                            probability: 82,
-                            reasoning: 'Abdominal pain + fever + elevated WBC suggests appendicitis',
-                            wiki: 'https://en.wikipedia.org/wiki/Appendicitis'
-                        });
-                        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
-                        recommendations.push('URGENT: Immediate surgical consultation');
-                        recommendations.push('Abdominal CT scan');
-                        recommendations.push('NPO status');
-                    } else {
-                        conditions.push({
-                            name: 'Gastroenteritis',
-                            probability: 70,
-                            reasoning: 'GI symptoms suggest gastroenteritis',
-                            wiki: 'https://en.wikipedia.org/wiki/Gastroenteritis'
-                        });
-                        recommendations.push('Oral rehydration solution');
-                        recommendations.push('Bland diet (BRAT)');
-                        recommendations.push('Anti-emetics if severe');
-                    }
-                }
+    // GASTROINTESTINAL CONDITIONS
+    if (symptoms.abdominalPain && symptoms.nausea) {
+        if (symptoms.fever && labResults.wbcCount > 11000) {
+            conditions.push({
+                name: 'Acute Appendicitis',
+                probability: 82,
+                reasoning: 'Abdominal pain + fever + elevated WBC suggests appendicitis',
+                wiki: 'https://en.wikipedia.org/wiki/Appendicitis'
+            });
+            urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+            recommendations.push('URGENT: Immediate surgical consultation');
+            recommendations.push('Abdominal CT scan with contrast');
+            recommendations.push('NPO status (nothing by mouth)');
+            recommendations.push('IV antibiotics pre-operatively');
+        } else if (symptoms.vomiting && symptoms.diarrhea) {
+            conditions.push({
+                name: 'Acute Gastroenteritis',
+                probability: 79,
+                reasoning: 'Nausea, vomiting, and diarrhea indicate GI infection',
+                wiki: 'https://en.wikipedia.org/wiki/Gastroenteritis'
+            });
+            recommendations.push('Oral rehydration solution (Pedialyte/ORS)');
+            recommendations.push('BRAT diet (Bananas, Rice, Applesauce, Toast)');
+            recommendations.push('Ondansetron for nausea if severe');
+            recommendations.push('Monitor for dehydration signs');
+        } else {
+            conditions.push({
+                name: 'Peptic Ulcer Disease',
+                probability: 68,
+                reasoning: 'Abdominal pain with nausea may indicate gastric ulcer',
+                wiki: 'https://en.wikipedia.org/wiki/Peptic_ulcer_disease'
+            });
+            recommendations.push('Avoid NSAIDs and aspirin');
+            recommendations.push('Proton pump inhibitor (Omeprazole 20mg daily)');
+            recommendations.push('Upper endoscopy if symptoms persist');
+            recommendations.push('H. pylori testing');
+        }
+    } else if (symptoms.abdominalPain && symptoms.diarrhea) {
+        conditions.push({
+            name: 'Inflammatory Bowel Disease',
+            probability: 66,
+            reasoning: 'Persistent abdominal pain with diarrhea suggests IBD',
+            wiki: 'https://en.wikipedia.org/wiki/Inflammatory_bowel_disease'
+        });
+        recommendations.push('Stool sample for culture and calprotectin');
+        recommendations.push('Colonoscopy for definitive diagnosis');
+        recommendations.push('Anti-inflammatory medications');
+        recommendations.push('GI specialist referral');
+    }
 
-                // FEVER ALONE
-                if (symptoms.fever && !conditions.length) {
-                    conditions.push({
-                        name: 'Fever of Unknown Origin',
-                        probability: 65,
-                        reasoning: 'Isolated fever requires investigation',
-                        wiki: 'https://en.wikipedia.org/wiki/Fever'
-                    });
-                    recommendations.push('Monitor temperature every 4-6 hours');
-                    recommendations.push('Acetaminophen 650mg every 6 hours');
-                    recommendations.push('Increase fluid intake');
-                    recommendations.push('Blood work if fever persists >72 hours');
-                }
+    // NEUROLOGICAL CONDITIONS
+    if (symptoms.headache && symptoms.fever && symptoms.confusion) {
+        conditions.push({
+            name: 'Meningitis',
+            probability: 85,
+            reasoning: 'Headache, fever, and altered mental status suggest meningitis',
+            wiki: 'https://en.wikipedia.org/wiki/Meningitis'
+        });
+        urgency = 'CRITICAL';
+        recommendations.push('IMMEDIATE: Call 911');
+        recommendations.push('Lumbar puncture for CSF analysis');
+        recommendations.push('IV antibiotics (Ceftriaxone + Vancomycin)');
+        recommendations.push('Isolation precautions');
+    } else if (symptoms.headache && symptoms.blurredVision && symptoms.nausea) {
+        conditions.push({
+            name: 'Migraine with Aura',
+            probability: 76,
+            reasoning: 'Headache with visual disturbances and nausea indicates migraine',
+            wiki: 'https://en.wikipedia.org/wiki/Migraine'
+        });
+        recommendations.push('Rest in dark, quiet room');
+        recommendations.push('Sumatriptan 50-100mg at onset');
+        recommendations.push('NSAIDs (Ibuprofen 800mg)');
+        recommendations.push('Identify and avoid triggers');
+    } else if (symptoms.headache && symptoms.dizziness) {
+        conditions.push({
+            name: 'Tension-Type Headache with Vertigo',
+            probability: 69,
+            reasoning: 'Headache with dizziness may indicate tension headache or vestibular issue',
+            wiki: 'https://en.wikipedia.org/wiki/Tension_headache'
+        });
+        recommendations.push('Acetaminophen 500mg every 6 hours');
+        recommendations.push('Stress reduction techniques');
+        recommendations.push('Physical therapy for neck tension');
+        recommendations.push('Vestibular exercises if dizziness persists');
+    }
 
-                // DEFAULT
-                if (conditions.length === 0) {
-                    if (symptomCount > 0) {
-                        conditions.push({
-                            name: 'Non-Specific Symptoms',
-                            probability: 55,
-                            reasoning: 'Symptom pattern requires comprehensive assessment',
-                            wiki: 'https://en.wikipedia.org/wiki/Medical_diagnosis'
-                        });
-                        recommendations.push('Comprehensive physical examination');
-                        recommendations.push('Basic laboratory workup');
-                        recommendations.push('Follow-up in 7-10 days');
-                    } else {
-                        conditions.push({
-                            name: 'No Significant Findings',
-                            probability: 50,
-                            reasoning: 'No symptoms reported - routine health maintenance',
-                            wiki: 'https://en.wikipedia.org/wiki/Preventive_healthcare'
-                        });
-                        recommendations.push('Maintain healthy lifestyle');
-                        recommendations.push('Regular exercise');
-                        recommendations.push('Balanced diet');
-                        recommendations.push('Annual wellness visit');
-                    }
-                }
+    // MUSCULOSKELETAL CONDITIONS
+    if (symptoms.jointPain && symptoms.fever && labResults.crpLevel > 10) {
+        conditions.push({
+            name: 'Rheumatoid Arthritis Flare',
+            probability: 74,
+            reasoning: 'Joint pain with fever and elevated CRP suggests inflammatory arthritis',
+            wiki: 'https://en.wikipedia.org/wiki/Rheumatoid_arthritis'
+        });
+        urgency = 'MEDIUM';
+        recommendations.push('Rheumatology consultation');
+        recommendations.push('RF and anti-CCP antibody testing');
+        recommendations.push('NSAIDs or corticosteroids');
+        recommendations.push('Joint X-rays for damage assessment');
+    } else if (symptoms.jointPain && symptoms.rashSkin) {
+        conditions.push({
+            name: 'Lupus (Systemic Lupus Erythematosus)',
+            probability: 68,
+            reasoning: 'Joint pain with rash may indicate autoimmune condition',
+            wiki: 'https://en.wikipedia.org/wiki/Systemic_lupus_erythematosus'
+        });
+        recommendations.push('ANA and anti-dsDNA antibody testing');
+        recommendations.push('Rheumatology referral');
+        recommendations.push('Sun protection (SPF 50+)');
+        recommendations.push('Hydroxychloroquine may be prescribed');
+    } else if (symptoms.backPain && symptoms.muscleAches) {
+        conditions.push({
+            name: 'Lumbar Strain with Myalgia',
+            probability: 71,
+            reasoning: 'Back pain with muscle aches suggests muscular injury',
+            wiki: 'https://en.wikipedia.org/wiki/Back_pain'
+        });
+        recommendations.push('Rest for 24-48 hours, then gentle activity');
+        recommendations.push('Ice first 48 hours, then heat');
+        recommendations.push('NSAIDs (Ibuprofen 400mg TID)');
+        recommendations.push('Physical therapy exercises');
+    }
 
-                conditions.sort((a, b) => b.probability - a.probability);
+    // DERMATOLOGICAL CONDITIONS
+    if (symptoms.rashSkin && symptoms.fever) {
+        conditions.push({
+            name: 'Viral Exanthem',
+            probability: 73,
+            reasoning: 'Rash with fever suggests viral infection',
+            wiki: 'https://en.wikipedia.org/wiki/Exanthem'
+        });
+        recommendations.push('Symptomatic treatment');
+        recommendations.push('Antihistamines for itching');
+        recommendations.push('Monitor for rash progression');
+        recommendations.push('Avoid scratching to prevent infection');
+    }
 
-                setDiagnosis({
-                    conditions,
-                    urgency,
-                    recommendations,
-                    patientInfo,
-                    vitals,
-                    labResults,
-                    bmi,
-                    symptomCount,
-                    timestamp: new Date().toLocaleString()
-                });
-            };
+    // METABOLIC/ENDOCRINE CONDITIONS
+    if (labResults.glucose > 200 && symptoms.fatigue && symptoms.weightLoss) {
+        conditions.push({
+            name: 'Diabetes Mellitus (New Onset)',
+            probability: 86,
+            reasoning: 'High glucose with fatigue and weight loss indicates diabetes',
+            wiki: 'https://en.wikipedia.org/wiki/Diabetes_mellitus'
+        });
+        urgency = urgency === 'LOW' ? 'MEDIUM' : urgency;
+        recommendations.push('Immediate HbA1c testing');
+        recommendations.push('Endocrinology consultation');
+        recommendations.push('Blood glucose monitoring');
+        recommendations.push('Dietary counseling and exercise plan');
+    } else if (symptoms.fatigue && symptoms.weightLoss && symptoms.fever) {
+        conditions.push({
+            name: 'Hyperthyroidism',
+            probability: 69,
+            reasoning: 'Weight loss, fatigue, and possible fever suggest thyroid overactivity',
+            wiki: 'https://en.wikipedia.org/wiki/Hyperthyroidism'
+        });
+        recommendations.push('TSH, Free T4, and Free T3 testing');
+        recommendations.push('Thyroid ultrasound');
+        recommendations.push('Endocrinology referral');
+        recommendations.push('Beta-blockers for symptom management');
+    }
+
+    // INFECTIOUS DISEASE - Fever patterns
+    if (symptoms.fever && symptoms.chills && symptoms.sweating) {
+        if (labResults.wbcCount > 15000) {
+            conditions.push({
+                name: 'Sepsis',
+                probability: 81,
+                reasoning: 'Fever with chills, sweating, and very high WBC suggests systemic infection',
+                wiki: 'https://en.wikipedia.org/wiki/Sepsis'
+            });
+            urgency = 'CRITICAL';
+            recommendations.push('IMMEDIATE: Emergency department');
+            recommendations.push('Blood cultures before antibiotics');
+            recommendations.push('Broad-spectrum IV antibiotics');
+            recommendations.push('Fluid resuscitation');
+        } else {
+            conditions.push({
+                name: 'Influenza',
+                probability: 76,
+                reasoning: 'Fever with chills and sweating is classic flu presentation',
+                wiki: 'https://en.wikipedia.org/wiki/Influenza'
+            });
+            recommendations.push('Rest and isolation');
+            recommendations.push('Oseltamivir if within 48 hours of onset');
+            recommendations.push('Acetaminophen for fever');
+            recommendations.push('Increase fluid intake significantly');
+        }
+    } else if (symptoms.fever && !conditions.length) {
+        conditions.push({
+            name: 'Viral Syndrome',
+            probability: 68,
+            reasoning: 'Isolated fever likely represents viral infection',
+            wiki: 'https://en.wikipedia.org/wiki/Fever'
+        });
+        recommendations.push('Monitor temperature every 4-6 hours');
+        recommendations.push('Acetaminophen 650mg every 6 hours');
+        recommendations.push('Increase fluid intake');
+        recommendations.push('Follow-up if fever persists >72 hours');
+    }
+
+    // RENAL CONDITIONS
+    if (labResults.creatinine > 1.5 && symptoms.fatigue && symptoms.nausea) {
+        conditions.push({
+            name: 'Acute Kidney Injury',
+            probability: 77,
+            reasoning: 'Elevated creatinine with systemic symptoms suggests kidney dysfunction',
+            wiki: 'https://en.wikipedia.org/wiki/Acute_kidney_injury'
+        });
+        urgency = urgency === 'LOW' ? 'HIGH' : urgency;
+        recommendations.push('Nephrology consultation urgently');
+        recommendations.push('BUN, electrolytes, urinalysis');
+        recommendations.push('Renal ultrasound');
+        recommendations.push('Identify and treat underlying cause');
+    }
+
+    // ANEMIA
+    if (labResults.hemoglobin < 10 && symptoms.fatigue && symptoms.dizziness) {
+        conditions.push({
+            name: 'Anemia (Moderate to Severe)',
+            probability: 84,
+            reasoning: 'Low hemoglobin with fatigue and dizziness confirms anemia',
+            wiki: 'https://en.wikipedia.org/wiki/Anemia'
+        });
+        urgency = 'MEDIUM';
+        recommendations.push('Iron studies (ferritin, TIBC, serum iron)');
+        recommendations.push('Vitamin B12 and folate levels');
+        recommendations.push('Iron supplementation (Ferrous sulfate 325mg daily)');
+        recommendations.push('Evaluate for bleeding sources');
+    }
+
+    // FATIGUE-RELATED CONDITIONS
+    if (symptoms.fatigue && symptoms.lossOfAppetite && !conditions.length) {
+        conditions.push({
+            name: 'Chronic Fatigue Syndrome',
+            probability: 62,
+            reasoning: 'Persistent fatigue with appetite loss requires comprehensive evaluation',
+            wiki: 'https://en.wikipedia.org/wiki/Chronic_fatigue_syndrome'
+        });
+        recommendations.push('Complete metabolic panel');
+        recommendations.push('Thyroid function tests');
+        recommendations.push('Sleep study consideration');
+        recommendations.push('Gradual increase in activity levels');
+    }
+
+    // GENERAL SYMPTOM CLUSTERS
+    if (symptomCount >= 5 && conditions.length === 0) {
+        // Create more specific diagnosis based on dominant symptoms
+        if (symptoms.fatigue && symptoms.muscleAches && symptoms.headache) {
+            conditions.push({
+                name: 'Fibromyalgia',
+                probability: 64,
+                reasoning: 'Multiple pain points with fatigue suggests fibromyalgia',
+                wiki: 'https://en.wikipedia.org/wiki/Fibromyalgia'
+            });
+            recommendations.push('Rheumatology consultation');
+            recommendations.push('Low-impact exercise program');
+            recommendations.push('Sleep hygiene improvement');
+            recommendations.push('Consider gabapentin or duloxetine');
+        } else {
+            conditions.push({
+                name: 'Multi-System Viral Illness',
+                probability: 61,
+                reasoning: 'Multiple symptoms suggest systemic viral infection',
+                wiki: 'https://en.wikipedia.org/wiki/Viral_disease'
+            });
+            recommendations.push('Comprehensive physical examination');
+            recommendations.push('Complete blood count and metabolic panel');
+            recommendations.push('Rest and supportive care');
+            recommendations.push('Follow-up in 7 days');
+        }
+    }
+
+    // DEFAULT - No symptoms or minimal findings
+    if (conditions.length === 0) {
+        if (symptomCount > 0) {
+            conditions.push({
+                name: 'Minor Constitutional Symptoms',
+                probability: 58,
+                reasoning: 'Limited symptoms require observation and monitoring',
+                wiki: 'https://en.wikipedia.org/wiki/Constitutional_symptom'
+            });
+            recommendations.push('Symptomatic treatment as needed');
+            recommendations.push('Monitor symptom progression');
+            recommendations.push('Return if symptoms worsen');
+            recommendations.push('Maintain good hydration and rest');
+        } else {
+            conditions.push({
+                name: 'No Significant Findings',
+                probability: 50,
+                reasoning: 'No symptoms reported - routine health maintenance',
+                wiki: 'https://en.wikipedia.org/wiki/Preventive_healthcare'
+            });
+            recommendations.push('Maintain healthy lifestyle');
+            recommendations.push('Regular exercise (150 min/week)');
+            recommendations.push('Balanced diet rich in fruits and vegetables');
+            recommendations.push('Annual wellness visit');
+        }
+    }
+
+    conditions.sort((a, b) => b.probability - a.probability);
+
+    setDiagnosis({
+        conditions,
+        urgency,
+        recommendations,
+        patientInfo,
+        vitals,
+        labResults,
+        bmi,
+        symptomCount,
+        timestamp: new Date().toLocaleString()
+    });
+};
 
 
             const sendChatMessage = async () => {
